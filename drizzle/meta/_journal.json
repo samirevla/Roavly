@@ -1,0 +1,90 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784809853102,
+      "tag": "0000_modern_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784864408773,
+      "tag": "0001_motionless_zaran",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784865789515,
+      "tag": "0002_mighty_shard",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784865884381,
+      "tag": "0003_workable_shinko_yamashiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784868027610,
+      "tag": "0004_stale_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784869702490,
+      "tag": "0005_abnormal_polaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1785056617296,
+      "tag": "0006_equal_magdalene",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1785057015491,
+      "tag": "0007_green_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785060269603,
+      "tag": "0008_dashing_malice",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785065873021,
+      "tag": "0009_good_wolfsbane",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1785150894253,
+      "tag": "0010_equal_leo",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1785842226577,
+      "tag": "0011_hard_pride",
+      "breakpoints": true
+    }
+  ]
+}

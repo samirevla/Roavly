@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `age_band` text DEFAULT 'Prefer not to say' NOT NULL;
