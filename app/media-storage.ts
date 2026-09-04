@@ -15,6 +15,11 @@ type MediaBucket = {
 };
 
 export async function getMediaBucket(): Promise<MediaBucket> {
+  const injected = (
+    globalThis as typeof globalThis & { __ROAVLY_TEST_BUCKET__?: MediaBucket }
+  ).__ROAVLY_TEST_BUCKET__;
+  if (injected) return injected;
+
   const { env } = await import("cloudflare:workers");
   const bucket = (env as unknown as { BUCKET?: MediaBucket }).BUCKET;
   if (!bucket) {

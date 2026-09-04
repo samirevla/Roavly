@@ -85,6 +85,13 @@
       "when": 1785842226577,
       "tag": "0011_hard_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1788515389617,
+      "tag": "0012_standalone_auth",
+      "breakpoints": true
     }
   ]
 }

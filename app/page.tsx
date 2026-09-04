@@ -337,7 +337,7 @@ export default function HomePage() {
   }
 
   function signIn() {
-    window.location.href = "/signin-with-chatgpt?return_to=%2F";
+    window.location.href = "/login?return_to=%2F";
   }
 
   async function choosePhoto(file: File | null) {
@@ -872,14 +872,103 @@ export default function HomePage() {
 }
 
 function WelcomeScreen({ signIn }: { signIn: () => void }) {
+  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(mode === "signup" ? "/api/auth/signup" : "/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          displayName: displayName || undefined,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error || "Could not authenticate.");
+        return;
+      }
+      window.location.href = "/";
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="welcome-screen">
-      <section className="welcome-card">
+      <section className="welcome-card auth-card">
         <RoavlyLogo className="welcome-logo" />
         <span className="eyebrow">Welcome to Roavly</span>
         <h1>Share the outdoors.<br />Motivate your people.</h1>
-        <p>Roavly is a positive social community for real outdoor journeys. Create your account, add friends and share your weekend adventures.</p>
-        <button onClick={signIn}><LogIn size={19} /> Continue with ChatGPT</button>
+        <p>Roavly is a positive social community for real outdoor journeys. Create your account with email and password — no third-party login required.</p>
+        <form className="auth-form" onSubmit={submit}>
+          {mode === "signup" && (
+            <label>
+              Display name
+              <input
+                autoComplete="name"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Alex Ridge"
+              />
+            </label>
+          )}
+          <label>
+            Email
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 8 characters"
+            />
+          </label>
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button type="submit" disabled={busy}>
+            <LogIn size={19} />
+            {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+          </button>
+        </form>
+        <p className="auth-switch">
+          {mode === "signup" ? (
+            <>
+              Already have an account?{" "}
+              <button type="button" className="linkish" onClick={() => setMode("login")}>Sign in</button>
+            </>
+          ) : (
+            <>
+              New here?{" "}
+              <button type="button" className="linkish" onClick={() => setMode("signup")}>Create an account</button>
+              {" · "}
+              <button type="button" className="linkish" onClick={signIn}>Open login page</button>
+            </>
+          )}
+        </p>
         <small>By continuing, you confirm you are at least 16 and agree to keep Roavly safe and positive.</small>
       </section>
     </main>
@@ -1765,7 +1854,7 @@ function ProfileModal({ profile, setProfile, saving, close, submit }: { profile:
             <label><span>Travel radius</span><input type="number" min={5} max={500} value={profile.travelRadiusKm} onChange={(event) => update("travelRadiusKm", Number(event.target.value))} /><small>Maximum kilometres you would usually travel.</small></label>
           </div>
           <label><span>Accessibility preferences <em>optional</em></span><textarea maxLength={240} value={profile.accessibilityNeeds} onChange={(event) => update("accessibilityNeeds", event.target.value)} placeholder="Share anything that would help others plan a suitable activity." /></label>
-          <div className="modal-footer"><a href="/signout-with-chatgpt?return_to=%2F"><LogOut size={16} /> Sign out</a><button className="publish-button" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button></div>
+          <div className="modal-footer"><a href="/api/auth/logout?return_to=%2F"><LogOut size={16} /> Sign out</a><button className="publish-button" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button></div>
         </form>
       </section>
     </div>

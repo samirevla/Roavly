@@ -10380,3 +10380,58 @@ gmp-place-autocomplete {
   .explorer-identity .edit-profile { max-width: calc(100% - 84px); }
   .explorer-identity .profile-body h2 { font-size: 25px; }
 }
+
+
+/* Standalone email/password auth */
+.auth-card { width: min(480px, 100%); }
+.auth-form {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  margin: 0 0 12px;
+}
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 650;
+}
+.auth-form input {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+}
+.auth-form button[type="submit"] {
+  min-height: 48px;
+  border: 0;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  background: var(--forest);
+  color: white;
+  font-weight: 720;
+  cursor: pointer;
+}
+.auth-form button[type="submit"]:disabled { opacity: .7; cursor: wait; }
+.auth-error { margin: 0; color: #b42318; font-size: 13px; }
+.auth-switch { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.auth-switch .linkish,
+button.linkish {
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
