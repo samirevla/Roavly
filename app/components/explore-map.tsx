@@ -58,11 +58,10 @@ export function ExploreMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
 
-  useEffect(() => {
-    if (!selectedId || !nearbyPosts.some((post) => post.id === selectedId)) {
-      setSelectedId(nearbyPosts[0]?.id ?? null);
-    }
-  }, [nearbyPosts, selectedId]);
+  const resolvedSelectedId =
+    selectedId && nearbyPosts.some((post) => post.id === selectedId)
+      ? selectedId
+      : (nearbyPosts[0]?.id ?? null);
 
   const filteredPosts = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -79,7 +78,7 @@ export function ExploreMap({
   }, [activity, nearbyPosts, query]);
 
   const selectedPost =
-    filteredPosts.find((post) => post.id === selectedId) ?? filteredPosts[0] ?? null;
+    filteredPosts.find((post) => post.id === resolvedSelectedId) ?? filteredPosts[0] ?? null;
 
   useEffect(() => {
     if (!mapHost.current) return;
@@ -92,11 +91,11 @@ export function ExploreMap({
         const { mapId } = await loadGoogleMaps();
         const { Map } = google.maps;
         if (cancelled || !mapHost.current) return;
+        // Default center only — userLocation pan is handled by a separate effect
+        // so this mount effect can stay empty-deps without exhaustive-deps noise.
         mapRef.current = new Map(mapHost.current, {
-          center: userLocation
-            ? { lat: userLocation.lat, lng: userLocation.lng }
-            : { lat: -37.8136, lng: 144.9631 },
-          zoom: userLocation ? 10 : 7,
+          center: { lat: -37.8136, lng: 144.9631 },
+          zoom: 7,
           mapId,
           mapTypeControl: false,
           streetViewControl: false,
@@ -139,10 +138,10 @@ export function ExploreMap({
       filteredPosts.forEach((post) => {
         const position = { lat: Number(post.latitude), lng: Number(post.longitude) };
         const pin = new PinElement({
-          background: post.id === selectedId ? "#087f5b" : "#55b7e8",
+          background: post.id === resolvedSelectedId ? "#087f5b" : "#55b7e8",
           borderColor: "#ffffff",
           glyphColor: "#ffffff",
-          scale: post.id === selectedId ? 1.18 : 1,
+          scale: post.id === resolvedSelectedId ? 1.18 : 1,
         });
         const marker = new AdvancedMarkerElement({
           map: mapRef.current,
@@ -170,7 +169,7 @@ export function ExploreMap({
     return () => {
       cancelled = true;
     };
-  }, [filteredPosts, mapStatus, selectedId]);
+  }, [filteredPosts, mapStatus, resolvedSelectedId]);
 
   useEffect(() => {
     if (mapStatus !== "ready" || !mapRef.current || !userLocation) return;
