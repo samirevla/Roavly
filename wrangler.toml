@@ -1,0 +1,23 @@
+name = "roavly-staging"
+main = "./worker/index.ts"
+compatibility_date = "2025-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Staging Workers deploy — separate from production OpenAI Sites hosting.
+# Placeholder IDs — will be replaced after `wrangler d1 create` / `r2 bucket create`
+[[d1_databases]]
+binding = "DB"
+database_name = "roavly-staging-db"
+database_id = "REPLACE_D1_ID"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "roavly-staging-media"
+
+[assets]
+binding = "ASSETS"
+directory = "./dist/client"
+
+[vars]
+ROAVLY_ALLOW_SITES_HEADERS = "0"
+AUTH_SESSION_DAYS = "30"
