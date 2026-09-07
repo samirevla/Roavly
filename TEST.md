@@ -1,6 +1,6 @@
-# Roavly standalone test guide
+# Waymark standalone test guide
 
-Roavly authenticates with email + password. ChatGPT/Sites login is not required.
+Waymark authenticates with email + password. ChatGPT/Sites login is not required.
 
 ## Prerequisites
 

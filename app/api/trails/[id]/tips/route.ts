@@ -74,8 +74,8 @@ export async function GET(
       thumbnailUrl: tip.thumbnailKey ? `/api/tips/${tip.id}/preview` : null,
       createdAt: tip.createdAt,
       creator: {
-        displayName: profile?.displayName || "Roavly creator",
-        username: profile?.username || "roavly.creator",
+        displayName: profile?.displayName || "Waymark creator",
+        username: profile?.username || "waymark.creator",
         hikeCount: creatorPosts.filter((post) => post.authorEmail === tip.creatorEmail).length,
       },
       rating: tipReviews.length ? Number((tipReviews.reduce((total, review) => total + review.rating, 0) / tipReviews.length).toFixed(1)) : null,

@@ -46,7 +46,7 @@ import { DiscoverView } from "./components/discover-view";
 import { AdSlot } from "./components/ad-slot";
 import { GoogleLocationPicker, SelectedPlace } from "./components/google-location-picker";
 import { MessagesView } from "./components/messages-view";
-import { RoavlyLogo } from "./components/roavly-logo";
+import { WaymarkLogo } from "./components/waymark-logo";
 import {
   preparePhotoForUpload,
   reportPhotoPreparationFailure,
@@ -208,7 +208,7 @@ const outdoorAchievements = [
   { minutes: 300, name: "Trail Regular", description: "Reach 5 hours outdoors" },
   { minutes: 600, name: "Outdoor Adventurer", description: "Reach 10 hours outdoors" },
   { minutes: 1500, name: "Wild Spirit", description: "Reach 25 hours outdoors" },
-  { minutes: 3000, name: "Roavly Legend", description: "Reach 50 hours outdoors" },
+  { minutes: 3000, name: "Waymark Legend", description: "Reach 50 hours outdoors" },
 ];
 
 export default function HomePage() {
@@ -261,7 +261,7 @@ export default function HomePage() {
         setPeople(friendPayload.people ?? []);
       } catch (error) {
         if (active) {
-          setToast(error instanceof Error ? error.message : "Roavly could not load.");
+          setToast(error instanceof Error ? error.message : "Waymark could not load.");
           window.setTimeout(() => setToast(""), 3000);
         }
       } finally {
@@ -315,7 +315,7 @@ export default function HomePage() {
   );
   const friends = people.filter((person) => person.relationship === "friends");
   const incomingRequests = people.filter((person) => person.relationship === "incoming");
-  const profileName = profile?.displayName || viewer?.displayName || "Roavly member";
+  const profileName = profile?.displayName || viewer?.displayName || "Waymark member";
   const profileUsername = profile?.username ? `@${profile.username}` : "";
   const initial = profileName.charAt(0).toUpperCase() || "R";
   const firstName = profileName.split(" ")[0] || "adventurer";
@@ -562,7 +562,7 @@ export default function HomePage() {
   }
 
   async function sharePost(post: SavedPost) {
-    const shareData = { title: `${post.authorName} on Roavly`, text: post.caption, url: window.location.href };
+    const shareData = { title: `${post.authorName} on Waymark`, text: post.caption, url: window.location.href };
     try {
       const recap = await createJourneyRecap(post);
       if (recap && navigator.share && navigator.canShare?.({ files: [recap] })) {
@@ -580,7 +580,7 @@ export default function HomePage() {
           showToast("Journey recap downloaded.");
         } else {
           await navigator.clipboard.writeText(window.location.href);
-          showToast("Roavly link copied.");
+          showToast("Waymark link copied.");
         }
       }
     } catch (error) {
@@ -666,8 +666,8 @@ export default function HomePage() {
   return (
     <main className={`app-shell ${activeNav === "Messages" ? "messages-active" : ""}`}>
       <header className="desktop-topbar">
-        <button className="kinetic-brand" onClick={() => setActiveNav("Feed")} aria-label="Roavly home">
-          <RoavlyLogo />
+        <button className="kinetic-brand" onClick={() => setActiveNav("Feed")} aria-label="Waymark home">
+          <WaymarkLogo />
         </button>
         <nav className="desktop-primary-nav" aria-label="Primary navigation">
           {primaryNavigation.map(({ label, nav, discover, icon: Icon }) => (
@@ -685,8 +685,8 @@ export default function HomePage() {
         </div>
       </header>
       <aside className="side-nav" aria-label="Primary navigation">
-        <button className="brand" onClick={() => setActiveNav("Feed")} aria-label="Roavly home">
-          <RoavlyLogo />
+        <button className="brand" onClick={() => setActiveNav("Feed")} aria-label="Waymark home">
+          <WaymarkLogo />
         </button>
         <nav className="nav-list">
           {primaryNavigation.map(({ label, nav, discover, icon: Icon }) => (
@@ -707,7 +707,7 @@ export default function HomePage() {
 
       <section className="main-column">
         <header className="mobile-header">
-          <button className="brand compact" onClick={() => setActiveNav("Feed")} aria-label="Roavly home"><RoavlyLogo /></button>
+          <button className="brand compact" onClick={() => setActiveNav("Feed")} aria-label="Waymark home"><WaymarkLogo /></button>
           <div className="mobile-header-actions">
             <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
             <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications"><Bell size={20} />{incomingRequests.length > 0 && <i>{incomingRequests.length}</i>}</button>
@@ -792,15 +792,15 @@ export default function HomePage() {
             openMessage={openMessage}
             inviteFriends={async () => {
               const shareData = {
-                title: "Join me on Roavly",
-                text: "Join my outdoor circle on Roavly so we can share journeys and motivate each other.",
+                title: "Join me on Waymark",
+                text: "Join my outdoor circle on Waymark so we can share journeys and motivate each other.",
                 url: window.location.origin,
               };
               try {
                 if (navigator.share) await navigator.share(shareData);
                 else {
                   await navigator.clipboard.writeText(window.location.origin);
-                  showToast("Roavly invite link copied.");
+                  showToast("Waymark invite link copied.");
                 }
               } catch {
                 // Closing the native share sheet is not an error.
@@ -851,7 +851,7 @@ export default function HomePage() {
             <div className="rail-empty"><Users size={24} /><p>Find friends and build your outdoor circle.</p><button onClick={() => setActiveNav("Friends")}>Find friends</button></div>
           )}
         </section>
-        <section className="rail-card community-note"><ShieldCheck size={22} /><div><strong>Community safety</strong><p>Only share locations you are comfortable making public. Report anything that breaks Roavly’s positive spirit.</p></div></section>
+        <section className="rail-card community-note"><ShieldCheck size={22} /><div><strong>Community safety</strong><p>Only share locations you are comfortable making public. Report anything that breaks Waymark’s positive spirit.</p></div></section>
       </aside>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
@@ -925,10 +925,10 @@ function WelcomeScreen({ signIn }: { signIn: () => void }) {
   return (
     <main className="welcome-screen">
       <section className="welcome-card auth-card">
-        <RoavlyLogo className="welcome-logo" />
-        <span className="eyebrow">Welcome to Roavly</span>
+        <WaymarkLogo className="welcome-logo" />
+        <span className="eyebrow">Welcome to Waymark</span>
         <h1>Share the outdoors.<br />Motivate your people.</h1>
-        <p>Roavly is a positive social community for real outdoor journeys. Create your account with email and password — no third-party login required.</p>
+        <p>Waymark is a positive outdoor community for real journeys and social connection outdoors. Create your account with email and password — no third-party login required.</p>
         <form className="auth-form" onSubmit={submit}>
           {mode === "signup" && (
             <label>
@@ -985,7 +985,7 @@ function WelcomeScreen({ signIn }: { signIn: () => void }) {
             </>
           )}
         </p>
-        <small>By continuing, you confirm you are at least 16 and agree to keep Roavly safe and positive.</small>
+        <small>By continuing, you confirm you are at least 16 and agree to keep Waymark safe and positive.</small>
       </section>
     </main>
   );
@@ -993,9 +993,9 @@ function WelcomeScreen({ signIn }: { signIn: () => void }) {
 
 function LoadingScreen() {
   return (
-    <main className="fresh-loading-shell" aria-live="polite" aria-label="Opening Roavly">
+    <main className="fresh-loading-shell" aria-live="polite" aria-label="Opening Waymark">
       <aside>
-        <div className="loading-brand"><RoavlyLogo /></div>
+        <div className="loading-brand"><WaymarkLogo /></div>
         <div className="loading-nav">{[Home, Compass, MessageCircle, Users, User].map((Icon, index) => <span key={index}><Icon size={21} /><i /></span>)}</div>
       </aside>
       <section>
@@ -1004,7 +1004,7 @@ function LoadingScreen() {
         <div className="loading-post"><header><span /><i /></header><div /><footer><i /><i /><i /></footer></div>
       </section>
       <aside><div className="loading-rail-card"><i /><strong /><span /><span /><span /></div><div className="loading-rail-card short"><i /><strong /><span /></div></aside>
-      <p>Opening Roavly…</p>
+      <p>Opening Waymark…</p>
     </main>
   );
 }
@@ -1064,7 +1064,7 @@ function Feed({
         <EmptyState
           icon={feedMode === "Community" ? ImagePlus : Users}
           title={feedMode === "Community" ? "Your next adventure starts here" : "Adventures are better together"}
-          copy={feedMode === "Community" ? "Roavly is empty by design. Share a real outdoor photo to start the community." : "Add friends or be the first in your group to share an adventure."}
+          copy={feedMode === "Community" ? "Waymark is empty by design. Share a real outdoor photo to start the community." : "Add friends or be the first in your group to share an adventure."}
           action={feedMode === "Community" ? "Share first journey" : "Share a journey"}
           onAction={openComposer}
         />
@@ -1515,11 +1515,11 @@ function Friends({
       {allFriends.length === 0 && (
         <section className="friends-empty">
           <span><Users size={34} /></span>
-          <div><span className="eyebrow">YOUR OUTDOOR CIRCLE</span><h2>Adventures are better together</h2><p>Invite friends to Roavly, then add each other here. Their outdoor journeys will appear on this page once you are connected.</p></div>
+          <div><span className="eyebrow">YOUR OUTDOOR CIRCLE</span><h2>Adventures are better together</h2><p>Invite friends to Waymark, then add each other here. Their outdoor journeys will appear on this page once you are connected.</p></div>
           <button onClick={inviteFriends}><Share2 size={17} /> Invite friends</button>
         </section>
       )}
-      <div className="member-search"><Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search members by name, username or activity" aria-label="Search Roavly members" /></div>
+      <div className="member-search"><Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search members by name, username or activity" aria-label="Search Waymark members" /></div>
       {incoming.length > 0 && <MemberSection title="Friend requests" people={incoming} manageFriend={manageFriend} openMessage={openMessage} />}
       {friends.length > 0 && <MemberSection title="Your friends" people={friends} manageFriend={manageFriend} openMessage={openMessage} />}
       <MemberSection title={people.length ? "Find more people" : "No other members yet"} people={discover} manageFriend={manageFriend} openMessage={openMessage} emptyCopy={people.length ? "No members match your search." : "Share your invite link. New members appear here after they create their account."} />
@@ -1562,7 +1562,7 @@ function MemberCard({ person, manageFriend, openMessage }: { person: Person; man
   return (
     <article className="member-card">
       <Avatar name={person.displayName} large />
-      <div className="member-copy"><h3>{person.displayName}</h3><span>@{person.username}</span>{person.bio && <p>{person.bio}</p>}<small>{[person.homeBase, person.favoriteActivities].filter(Boolean).join(" · ") || "New to Roavly"}</small><div className="match-tags"><span>{person.experienceLevel}</span><span>{person.pacePreference} pace</span><span>{person.groupStyle}</span></div></div>
+      <div className="member-copy"><h3>{person.displayName}</h3><span>@{person.username}</span>{person.bio && <p>{person.bio}</p>}<small>{[person.homeBase, person.favoriteActivities].filter(Boolean).join(" · ") || "New to Waymark"}</small><div className="match-tags"><span>{person.experienceLevel}</span><span>{person.pacePreference} pace</span><span>{person.groupStyle}</span></div></div>
       <div className="friend-actions">
         {person.relationship === "none" && <button onClick={() => manageFriend(person.username, "request")}><UserPlus size={16} /> Add friend</button>}
         {person.relationship === "outgoing" && <button className="muted" disabled><Check size={16} /> Requested</button>}
@@ -1634,7 +1634,7 @@ function ProfileView({
             <button className="edit-profile" onClick={openEdit}><Edit3 size={16} /> Edit profile</button>
           </div>
           <span className="explorer-level"><Award size={14} /> {explorerLevel}</span>
-          {plusActive && <span className="roavly-plus-badge"><Gem size={14} /> Roavly+ Explorer</span>}
+          {plusActive && <span className="waymark-plus-badge"><Gem size={14} /> Waymark+ Explorer</span>}
           <h2>{profile.displayName}</h2><span className="profile-handle">@{profile.username}</span>
           <p>{profile.bio || "Tell your outdoor story—what gets you moving, wandering and looking for the next trail."}</p>
           <div className="profile-meta">{profile.homeBase && <span><MapPin size={16} /> {profile.homeBase}</span>}{profile.favoriteActivities && <span><Compass size={16} /> {profile.favoriteActivities}</span>}</div>
@@ -1757,7 +1757,7 @@ function ComposerModal({
       <section className="composer-modal wide" role="dialog" aria-modal="true" aria-labelledby="composer-title" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><span className="eyebrow">Public community post</span><h2 id="composer-title">Share a journey</h2></div><button onClick={close} aria-label="Close composer"><X size={22} /></button></header>
         <form onSubmit={submit}>
-          <div className="modal-author"><span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>Visible to signed-in Roavly members</small></span></div>
+          <div className="modal-author"><span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>Visible to signed-in Waymark members</small></span></div>
           {draft.inspiredByPostId && <div className="motivation-chain-banner"><Sparkles size={19} /><div><strong>You were motivated by another journey</strong><span>Sharing this will add your outdoor time to that post’s positive impact.</span></div></div>}
           <label className={`real-photo-picker ${photoPreview ? "has-photo" : ""} ${composerError && !photo ? "has-error" : ""}`}>
             {preparingPhoto ? (
@@ -1860,7 +1860,7 @@ function ProfileModal({ profile, setProfile, saving, close, submit }: { profile:
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <section className="composer-modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="profile-modal-header"><div><span className="eyebrow">Your Roavly identity</span><h2 id="profile-title">Edit profile</h2></div><button type="button" onClick={close} aria-label="Close profile editor"><X size={22} /></button></header>
+        <header className="profile-modal-header"><div><span className="eyebrow">Your Waymark identity</span><h2 id="profile-title">Edit profile</h2></div><button type="button" onClick={close} aria-label="Close profile editor"><X size={22} /></button></header>
         <form onSubmit={submit}>
           <div className="form-grid single">
             <label><span>Display name</span><input required value={profile.displayName} onChange={(event) => update("displayName", event.target.value)} /></label>
@@ -1899,14 +1899,14 @@ function OutdoorTracker({ minutes, compact = false }: { minutes: number; compact
         <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
         <div className="compact-achievement">
           <span><Award size={23} /></span>
-          <div><small>Next achievement</small><strong>{next?.name ?? "Roavly Legend"}</strong><em>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "Every milestone unlocked"}</em></div>
+          <div><small>Next achievement</small><strong>{next?.name ?? "Waymark Legend"}</strong><em>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "Every milestone unlocked"}</em></div>
         </div>
       </section>
     );
   }
   return (
     <section className="outdoor-tracker">
-      <div className="tracker-summary"><span className="tracker-icon large"><Timer size={29} /></span><div><span className="eyebrow">Your time outdoors</span><h2>{formatOutdoorTime(minutes)}</h2><p>Calculated from every journey you share.</p></div><div className="tracker-next"><small>Next achievement</small><strong>{next?.name ?? "All unlocked!"}</strong><span>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "You’re a Roavly Legend"}</span></div></div>
+      <div className="tracker-summary"><span className="tracker-icon large"><Timer size={29} /></span><div><span className="eyebrow">Your time outdoors</span><h2>{formatOutdoorTime(minutes)}</h2><p>Calculated from every journey you share.</p></div><div className="tracker-next"><small>Next achievement</small><strong>{next?.name ?? "All unlocked!"}</strong><span>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "You’re a Waymark Legend"}</span></div></div>
       <div className="tracker-progress"><div><i style={{ width: `${progress}%` }} /></div><span>{progress}% to your next achievement</span></div>
       <div className="achievement-list">{outdoorAchievements.map((achievement) => {
         const achieved = minutes >= achievement.minutes;
@@ -2040,13 +2040,13 @@ async function createJourneyRecap(post: SavedPost) {
     });
     context.fillStyle = "#a7f3d0";
     context.font = "700 34px Arial";
-    context.fillText("ROAVLY", 72, 1282);
+    context.fillText("WAYMARK", 72, 1282);
     context.fillStyle = "rgba(255,255,255,.7)";
     context.font = "24px Arial";
     context.fillText("Share the outdoors. Motivate your people.", 245, 1282);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-    return blob ? new File([blob], `roavly-${post.id.slice(0, 8)}-recap.png`, { type: "image/png" }) : null;
+    return blob ? new File([blob], `waymark-${post.id.slice(0, 8)}-recap.png`, { type: "image/png" }) : null;
   } catch {
     return null;
   }

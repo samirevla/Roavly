@@ -13,7 +13,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Roavly — Outside is better together",
+  title: "Waymark — Outside is better together",
   description:
     "A positive outdoor community for sharing journeys, finding activities and motivating people to get outside.",
   other: {

@@ -122,7 +122,7 @@ export async function GET() {
       durationMinutes: post.durationMinutes,
       imageUrl: `/api/media/${post.imageKey}`,
       authorName: author?.displayName || post.authorName,
-      authorUsername: author?.username || "roavly.member",
+      authorUsername: author?.username || "waymark.member",
     }];
   });
 
@@ -148,8 +148,8 @@ export async function GET() {
       .filter((member) => member.planId === plan.id)
       .map((member) => ({
         ...member,
-        displayName: publicProfiles.get(member.userEmail)?.displayName || "Roavly member",
-        username: publicProfiles.get(member.userEmail)?.username || "roavly.member",
+        displayName: publicProfiles.get(member.userEmail)?.displayName || "Waymark member",
+        username: publicProfiles.get(member.userEmail)?.username || "waymark.member",
         isViewer: member.userEmail === user.email,
       }));
     const viewerMembership = members.find((member) => member.isViewer);
@@ -164,8 +164,8 @@ export async function GET() {
       plan.hostEmail === user.email || viewerMembership?.status === "accepted";
     return {
       ...plan,
-      hostName: host?.displayName || "Roavly host",
-      hostUsername: host?.username || "roavly.member",
+      hostName: host?.displayName || "Waymark host",
+      hostUsername: host?.username || "waymark.member",
       isHost: plan.hostEmail === user.email,
       viewerStatus: plan.hostEmail === user.email ? "host" : viewerMembership?.status || "none",
       attendeeCount: members.filter((member) => member.status === "accepted").length,
@@ -190,8 +190,8 @@ export async function GET() {
     const owner = publicProfiles.get(club.ownerEmail);
     return {
       ...club,
-      ownerName: owner?.displayName || "Roavly member",
-      ownerUsername: owner?.username || "roavly.member",
+      ownerName: owner?.displayName || "Waymark member",
+      ownerUsername: owner?.username || "waymark.member",
       memberCount: members.length,
       viewerJoined: members.some((member) => member.userEmail === user.email),
       isOwner: club.ownerEmail === user.email,

@@ -21,7 +21,7 @@ const achievements = [
   { minutes: 300, name: "Trail Regular", icon: "footsteps-outline" as const },
   { minutes: 600, name: "Outdoor Adventurer", icon: "compass-outline" as const },
   { minutes: 1500, name: "Wild Spirit", icon: "bonfire-outline" as const },
-  { minutes: 3000, name: "Roavly Legend", icon: "trophy-outline" as const },
+  { minutes: 3000, name: "Waymark Legend", icon: "trophy-outline" as const },
 ];
 
 function durationLabel(minutes: number) {
@@ -146,7 +146,7 @@ export function ProfileScreen({
           <Ionicons name="log-out-outline" size={19} color={colors.danger} />
           <Text style={styles.logoutText}>Sign out</Text>
         </Pressable>
-        <Text style={styles.version}>Roavly iPhone beta · Version 0.1</Text>
+        <Text style={styles.version}>Waymark iPhone beta · Version 0.1</Text>
       </ScrollView>
 
       <ProfileEditModal

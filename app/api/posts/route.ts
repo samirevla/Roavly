@@ -29,7 +29,7 @@ function errorMessage(error: unknown) {
 export async function GET() {
   const viewer = await getChatGPTUser();
   if (!viewer) {
-    return Response.json({ error: "Sign in to view the Roavly feed." }, { status: 401 });
+    return Response.json({ error: "Sign in to view the Waymark feed." }, { status: 401 });
   }
 
   try {
@@ -115,7 +115,7 @@ export async function GET() {
         placeId: canSeeExact ? post.placeId : null,
         locationPrecision: canSeeExact ? "exact" : "approximate",
         authorName: author?.displayName || post.authorName,
-        authorUsername: author?.username || "roavly.member",
+        authorUsername: author?.username || "waymark.member",
         imageUrl: `/api/media/${post.imageKey}`,
         motivationCount: postReactions.length,
         viewerMotivated: postReactions.some((reaction) => reaction.userEmail === viewer.email),
@@ -144,8 +144,8 @@ export async function GET() {
               postId: comment.postId,
               body: comment.body,
               createdAt: comment.createdAt,
-              authorName: commentAuthor?.displayName || "Roavly member",
-              authorUsername: commentAuthor?.username || "roavly.member",
+              authorName: commentAuthor?.displayName || "Waymark member",
+              authorUsername: commentAuthor?.username || "waymark.member",
               canDelete:
                 comment.authorEmail === viewer.email || authorEmail === viewer.email,
             };
@@ -325,7 +325,7 @@ export async function POST(request: Request) {
       {
         post: {
           ...publicPost,
-          authorUsername: profile?.username || "roavly.member",
+          authorUsername: profile?.username || "waymark.member",
           imageUrl: `/api/media/${imageKey}`,
           motivationCount: 0,
           viewerMotivated: false,

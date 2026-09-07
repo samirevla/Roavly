@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { LogIn } from "lucide-react";
-import { RoavlyLogo } from "../components/roavly-logo";
+import { WaymarkLogo } from "../components/waymark-logo";
 
 type Mode = "login" | "signup";
 
@@ -55,12 +55,12 @@ export default function LoginPage() {
   return (
     <main className="welcome-screen">
       <section className="welcome-card auth-card">
-        <RoavlyLogo className="welcome-logo" />
-        <span className="eyebrow">Welcome to Roavly</span>
+        <WaymarkLogo className="welcome-logo" />
+        <span className="eyebrow">Welcome to Waymark</span>
         <h1>{mode === "signup" ? "Create your account" : "Sign in"}</h1>
         <p>
           Email and password only — no ChatGPT login required. Share outdoor
-          journeys with friends on your own Roavly instance.
+          journeys with friends on your own Waymark instance.
         </p>
         <form className="auth-form" onSubmit={submit}>
           {mode === "signup" && (
@@ -125,7 +125,7 @@ export default function LoginPage() {
           )}
         </p>
         <small>
-          By continuing, you confirm you are at least 16 and agree to keep Roavly
+          By continuing, you confirm you are at least 16 and agree to keep Waymark
           safe and positive.
         </small>
       </section>

@@ -456,7 +456,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .welcome-card { padding: 42px 22px; border-radius: 18px; }
 }
 
-/* Roavly Action: discovery, planning, privacy and community */
+/* Waymark Action: discovery, planning, privacy and community */
 .discover-shell { display: grid; gap: 14px; }
 .discover-hero {
   position: relative;
@@ -5293,7 +5293,7 @@ body {
   }
 }
 
-/* Roavly Expedition — premium social product system */
+/* Waymark Expedition — premium social product system */
 :root {
   --forest: #123d31;
   --forest-2: #0b3026;
@@ -7453,7 +7453,7 @@ button:not(:disabled):active {
 .native-ad p { margin: 2px 0 0; overflow: hidden; color: #68746e; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .gear-pill { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; color: #315548; background: #edf4f0; border-radius: 999px; font-size: 11px; font-weight: 750; text-decoration: none; }
 .gear-pill small { color: #7b8882; font-size: 8px; text-transform: uppercase; }
-.roavly-plus-badge { display: inline-flex; width: max-content; align-items: center; gap: 5px; margin: 7px 0 0 8px; padding: 5px 8px; color: #0e6348; background: #dff6ea; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: .04em; }
+.waymark-plus-badge { display: inline-flex; width: max-content; align-items: center; gap: 5px; margin: 7px 0 0 8px; padding: 5px 8px; color: #0e6348; background: #dff6ea; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: .04em; }
 
 @media (max-width: 760px) {
   .revenue-hub { gap: 15px; padding-bottom: 20px; }
@@ -7506,7 +7506,7 @@ button:not(:disabled):active {
   .tip-cart button { flex: 1; }
 }
 
-/* Journey lifecycle and legible Roavly mark */
+/* Journey lifecycle and legible Waymark mark */
 .side-nav .brand-mark,
 .mobile-header .brand-mark {
   color: #197253;
@@ -7759,7 +7759,7 @@ button:not(:disabled):active {
   }
 }
 
-/* Kinetic Trail — approved Roavly social system */
+/* Kinetic Trail — approved Waymark social system */
 :root {
   --forest: #10271f;
   --forest-2: #071a13;
@@ -7806,7 +7806,7 @@ body {
 h1,
 h2,
 h3,
-.roavly-wordmark,
+.waymark-wordmark,
 .today-adventures h2,
 .discover-hero h2,
 .visual-discovery h3,
@@ -7826,7 +7826,7 @@ button:not(:disabled):active {
   transform: scale(.965);
 }
 
-.roavly-logo {
+.waymark-logo {
   min-width: 0;
   display: inline-flex;
   align-items: center;
@@ -7835,7 +7835,7 @@ button:not(:disabled):active {
   line-height: 1;
 }
 
-.roavly-logo-tile {
+.waymark-logo-tile {
   width: 40px;
   height: 40px;
   flex: 0 0 auto;
@@ -7848,17 +7848,17 @@ button:not(:disabled):active {
   overflow: hidden;
 }
 
-.roavly-logo-tile svg {
+.waymark-logo-tile svg {
   width: 28px;
   height: 28px;
   overflow: visible;
 }
 
-.roavly-logo-mountain {
+.waymark-logo-mountain {
   fill: rgba(255, 255, 255, .95);
 }
 
-.roavly-logo-ridge {
+.waymark-logo-ridge {
   fill: none;
   stroke: rgba(167, 243, 208, .55);
   stroke-width: 2.5;
@@ -7866,7 +7866,7 @@ button:not(:disabled):active {
   stroke-linejoin: round;
 }
 
-.roavly-logo-trail {
+.waymark-logo-trail {
   fill: none;
   stroke: #a7f3d0;
   stroke-width: 3.5;
@@ -7874,15 +7874,15 @@ button:not(:disabled):active {
   stroke-linejoin: round;
 }
 
-.roavly-logo-pin-ring {
+.waymark-logo-pin-ring {
   fill: rgba(15, 61, 46, .35);
 }
 
-.roavly-logo-pin {
+.waymark-logo-pin {
   fill: #a7f3d0;
 }
 
-.roavly-wordmark {
+.waymark-wordmark {
   color: var(--forest);
   font-family: var(--font-display);
   font-size: 22px;
@@ -8952,18 +8952,18 @@ button:not(:disabled):active {
   gap: 14px;
 }
 
-.welcome-logo .roavly-logo-tile {
+.welcome-logo .waymark-logo-tile {
   width: 56px;
   height: 56px;
   border-radius: 16px;
 }
 
-.welcome-logo .roavly-logo-tile svg {
+.welcome-logo .waymark-logo-tile svg {
   width: 38px;
   height: 38px;
 }
 
-.welcome-logo .roavly-wordmark {
+.welcome-logo .waymark-wordmark {
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -.035em;
@@ -8984,7 +8984,7 @@ button:not(:disabled):active {
   background: var(--forest);
 }
 
-.loading-brand .roavly-logo-tile {
+.loading-brand .waymark-logo-tile {
   width: 40px;
   height: 40px;
   border-radius: 12px;
@@ -9075,23 +9075,23 @@ button:not(:disabled):active {
     padding: 0;
   }
 
-  .mobile-header .roavly-logo {
+  .mobile-header .waymark-logo {
     gap: 9px;
     max-width: min(58vw, 220px);
   }
 
-  .mobile-header .roavly-logo-tile {
+  .mobile-header .waymark-logo-tile {
     width: 34px;
     height: 34px;
     border-radius: 10px;
   }
 
-  .mobile-header .roavly-logo-tile svg {
+  .mobile-header .waymark-logo-tile svg {
     width: 22px;
     height: 22px;
   }
 
-  .mobile-header .roavly-wordmark {
+  .mobile-header .waymark-wordmark {
     font-size: 18px;
     letter-spacing: -.03em;
     overflow: hidden;
@@ -9405,7 +9405,7 @@ button:not(:disabled):active {
 }
 
 @media (max-width: 380px) {
-  .mobile-header .roavly-wordmark {
+  .mobile-header .waymark-wordmark {
     display: none;
   }
 
@@ -9419,7 +9419,7 @@ button:not(:disabled):active {
   }
 }
 
-/* iPhone Google Places search — keep the suggestion sheet in Roavly's light theme. */
+/* iPhone Google Places search — keep the suggestion sheet in Waymark's light theme. */
 html {
   color-scheme: light;
 }
@@ -9517,7 +9517,7 @@ gmp-place-autocomplete {
   }
 
   .mobile-header .brand.compact,
-  .mobile-header .roavly-logo {
+  .mobile-header .waymark-logo {
     flex: 0 1 auto;
     min-width: 0;
   }
@@ -9961,7 +9961,7 @@ gmp-place-autocomplete {
 }
 
 @media (max-width: 390px) {
-  .mobile-header .roavly-wordmark {
+  .mobile-header .waymark-wordmark {
     display: none;
   }
 

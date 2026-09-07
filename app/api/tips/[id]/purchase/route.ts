@@ -43,7 +43,7 @@ export async function POST(
   const config = await getMonetizationConfig();
 
   if (payload.useCredit) {
-    if (tips.length !== 1) return Response.json({ error: "Use one Roavly+ credit at a time." }, { status: 400 });
+    if (tips.length !== 1) return Response.json({ error: "Use one Waymark+ credit at a time." }, { status: 400 });
     const ledger = await getOrCreateTipCreditLedger(user.email);
     if (!ledger || ledger.creditsUsed >= ledger.creditsTotal) return Response.json({ error: "You have no trail-tip credits left this billing period." }, { status: 402 });
     const consumed = await db.update(tipCreditsLedger)
@@ -98,7 +98,7 @@ export async function POST(
       total_cents: String(totalCents),
     },
     items: [{
-      name: isBundle ? `Roavly trail briefing bundle (${tips.length})` : tips[0].title,
+      name: isBundle ? `Waymark trail briefing bundle (${tips.length})` : tips[0].title,
       unitAmountCents: totalCents,
     }],
   });

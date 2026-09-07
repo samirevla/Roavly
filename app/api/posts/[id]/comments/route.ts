@@ -17,7 +17,7 @@ export async function POST(
   const body = payload.body?.trim() || "";
   if (!isApprovedEncouragement(body)) {
     return Response.json(
-      { error: "Choose one of Roavly’s positive encouragements." },
+      { error: "Choose one of Waymark’s positive encouragements." },
       { status: 400 },
     );
   }
@@ -44,7 +44,7 @@ export async function POST(
         body: comment.body,
         createdAt: comment.createdAt,
         authorName: profile?.displayName || user.displayName,
-        authorUsername: profile?.username || "roavly.member",
+        authorUsername: profile?.username || "waymark.member",
         canDelete: true,
       },
     },
@@ -76,8 +76,8 @@ export async function GET(
         postId: comment.postId,
         body: comment.body,
         createdAt: comment.createdAt,
-        authorName: author?.displayName || "Roavly member",
-        authorUsername: author?.username || "roavly.member",
+        authorName: author?.displayName || "Waymark member",
+        authorUsername: author?.username || "waymark.member",
         canDelete:
           comment.authorEmail === user.email || post.authorEmail === user.email,
       };

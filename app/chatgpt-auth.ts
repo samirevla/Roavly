@@ -358,7 +358,7 @@ export async function createAuthAccount(input: {
   const displayName =
     input.displayName?.trim().slice(0, 60) ||
     email.split("@")[0] ||
-    "Roavly member";
+    "Waymark member";
   const user: ChatGPTUser = {
     email,
     displayName,

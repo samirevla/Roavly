@@ -48,14 +48,14 @@ export function friendlyUploadError(error: unknown): string {
   const message = error instanceof Error ? error.message : "Unexpected error";
   const lowerMessage = message.toLowerCase();
   if (lowerMessage.includes("no such table")) {
-    return "Roavly is being updated. Please try again shortly.";
+    return "Waymark is being updated. Please try again shortly.";
   }
   if (
     lowerMessage.includes("expected pattern") ||
     lowerMessage.includes("failed to fetch") ||
     lowerMessage.includes("network")
   ) {
-    return "The upload did not reach Roavly. Your photo was already reduced automatically—please try sharing it once more.";
+    return "The upload did not reach Waymark. Your photo was already reduced automatically—please try sharing it once more.";
   }
   return message;
 }

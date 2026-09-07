@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     .where(eq(profiles.username, targetUsername))
     .limit(1);
   if (!target || target.email === user.email) {
-    return Response.json({ error: "That Roavly member was not found." }, { status: 404 });
+    return Response.json({ error: "That Waymark member was not found." }, { status: 404 });
   }
 
   const [userOneEmail, userTwoEmail] = orderedPair(user.email, target.email);

@@ -89,8 +89,8 @@ export async function GET() {
         .map((item) => {
           const profile = profileRows.find((candidate) => candidate.email === item.userEmail);
           return {
-            displayName: profile?.displayName || "Roavly member",
-            username: profile?.username || "roavly.member",
+            displayName: profile?.displayName || "Waymark member",
+            username: profile?.username || "waymark.member",
             isViewer: item.userEmail === user.email,
           };
         });

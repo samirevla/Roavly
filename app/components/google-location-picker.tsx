@@ -44,7 +44,7 @@ export function GoogleLocationPicker({
           placeholder: "Search trail, park, mountain or address",
         });
         // Google's mobile autocomplete follows the device theme by default.
-        // Roavly uses a light composer, so force the widget and its iPhone
+        // Waymark uses a light composer, so force the widget and its iPhone
         // full-screen prediction surface to stay light and readable.
         autocomplete.style.colorScheme = "light";
         autocomplete.style.backgroundColor = "#ffffff";

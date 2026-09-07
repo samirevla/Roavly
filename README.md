@@ -1,6 +1,6 @@
-# Roavly
+# Waymark
 
-Roavly is a positive social platform for outdoor activities. Members share real
+Waymark is a positive social platform for outdoor activities. Members share real
 journeys, discover places on a map, motivate friends, plan group adventures,
 message one another, track time outdoors and unlock achievements.
 
@@ -67,7 +67,7 @@ development-build and TestFlight instructions.
 
 ## Monetization
 
-The codebase contains the foundation for trail-tip purchases, Roavly+ feature
+The codebase contains the foundation for trail-tip purchases, Waymark+ feature
 flags, creator payouts, affiliate gear attribution, local partners, sponsored
 challenges and disclosed native ads. Real payments remain disabled until Stripe
 keys, products and a verified webhook are configured.

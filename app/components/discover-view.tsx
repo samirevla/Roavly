@@ -558,7 +558,7 @@ function PlansView({
                       <button onClick={() => onAction(plan.id, "invite", friend.username)}>Invite</button>
                     </div>
                   )) : (
-                    <p>{friends.length ? "Every friend is already included or invited." : "Add friends to Roavly, then invite them directly from here."}</p>
+                    <p>{friends.length ? "Every friend is already included or invited." : "Add friends to Waymark, then invite them directly from here."}</p>
                   )}
                 </div>
               </details>
@@ -613,7 +613,7 @@ function ClubsView({
           <span className="club-badge"><Mountain size={24} /></span>
           <small>{club.activityType}</small>
           <h3>{club.name}</h3>
-          <p>{club.description || "A new Roavly outdoor community."}</p>
+          <p>{club.description || "A new Waymark outdoor community."}</p>
           <div><span><MapPin size={14} /> {club.homeBase || "Worldwide"}</span><span><Users size={14} /> {club.memberCount} {club.memberCount === 1 ? "member" : "members"}</span></div>
           <em>Started by @{club.ownerUsername}</em>
           {club.isOwner
@@ -694,7 +694,7 @@ function PlanModal({
         <div className="form-grid single">
           <label><span>Plan title</span><input required maxLength={80} value={form.title} onChange={(event) => update("title", event.target.value)} placeholder="Saturday sunrise hike" /></label>
           <label><span>Date and time</span><input required type="datetime-local" value={form.startsAt} onChange={(event) => update("startsAt", event.target.value)} /></label>
-          <label><span>Meeting area</span><input required maxLength={160} value={form.location} onChange={(event) => update("location", event.target.value)} placeholder="Share a broad area; send exact details after accepting people" /><small>Roavly hides exact coordinates from people who have not been accepted.</small></label>
+          <label><span>Meeting area</span><input required maxLength={160} value={form.location} onChange={(event) => update("location", event.target.value)} placeholder="Share a broad area; send exact details after accepting people" /><small>Waymark hides exact coordinates from people who have not been accepted.</small></label>
         </div>
         <div className="form-grid">
           <label><span>Activity</span><select value={form.activityType} onChange={(event) => update("activityType", event.target.value)}><ActivityOptions /></select></label>
@@ -740,7 +740,7 @@ function SafetyModal({
   return (
     <Modal title="Your safety circle" eyebrow="PRIVATE CHECK-IN SETUP" close={close}>
       <form onSubmit={(event) => { event.preventDefault(); submit(form); }}>
-        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Roavly. Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving.</p></div>
+        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Waymark. Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving.</p></div>
         <div className="form-grid single">
           <label><span>Contact name</span><input maxLength={80} value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} placeholder="Who should know your plans?" /></label>
           <label><span>Phone or email</span><input maxLength={120} value={form.contactMethod} onChange={(event) => setForm({ ...form, contactMethod: event.target.value })} placeholder="Stored privately with your account" /></label>

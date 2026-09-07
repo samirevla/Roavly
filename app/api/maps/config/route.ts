@@ -11,7 +11,7 @@ export async function GET() {
   const user = await getChatGPTUser();
   if (!user) {
     return Response.json(
-      { error: "Sign in to use Roavly maps." },
+      { error: "Sign in to use Waymark maps." },
       { status: 401 },
     );
   }

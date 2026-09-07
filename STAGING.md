@@ -1,4 +1,4 @@
-# Roavly Cloudflare staging
+# Waymark Cloudflare staging
 
 Staging runs on Cloudflare Workers + D1 + R2, separate from production OpenAI Sites.
 

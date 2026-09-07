@@ -1,6 +1,6 @@
-# Roavly iPhone beta
+# Waymark iPhone beta
 
-This native Expo/React Native client uses the same Roavly accounts, posts,
+This native Expo/React Native client uses the same Waymark accounts, posts,
 friends, comments and conversations as the hosted web app.
 
 ## Local development

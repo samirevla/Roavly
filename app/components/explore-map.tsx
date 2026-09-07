@@ -164,7 +164,7 @@ export function ExploreMap({
   return (
     <section className="explore-screen">
       <div className="explore-intro">
-        <div><span className="eyebrow">Discover the outdoors</span><h2>Find real places through real journeys</h2><p>{hasGeotagged ? "Select a pin to see what the Roavly community has done there." : "The map is ready — share a geotagged journey to drop the first pin."}</p></div>
+        <div><span className="eyebrow">Discover the outdoors</span><h2>Find real places through real journeys</h2><p>{hasGeotagged ? "Select a pin to see what the Waymark community has done there." : "The map is ready — share a geotagged journey to drop the first pin."}</p></div>
         <span className="map-count"><LocateFixed size={17} />{geotaggedPosts.length} mapped {geotaggedPosts.length === 1 ? "journey" : "journeys"}</span>
       </div>
       {hasGeotagged && (
@@ -194,7 +194,7 @@ export function ExploreMap({
         </>
       )}
       <div className="map-stage">
-        <div ref={mapHost} className="journey-map" role="region" aria-label="Interactive map of public Roavly journeys" />
+        <div ref={mapHost} className="journey-map" role="region" aria-label="Interactive map of public Waymark journeys" />
         {mapStatus === "loading" && <div className="map-loading"><span className="spin" /><p>Loading activity map…</p></div>}
         {mapStatus === "error" && <div className="map-error" role="alert"><MapPin size={28} /><strong>Map unavailable</strong><p>{mapError}</p><button onClick={() => window.location.reload()}>Try again</button></div>}
         {!hasGeotagged && mapStatus !== "error" && mapStatus !== "loading" && (
