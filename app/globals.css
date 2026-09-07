@@ -347,10 +347,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .empty-state p { max-width: 390px; margin: 0 0 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .empty-state button { min-height: 40px; border: 0; border-radius: 9px; padding: 0 14px; background: var(--forest); color: white; font-size: 11px; font-weight: 700; cursor: pointer; }
 
-.modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 26, 19, .52); backdrop-filter: blur(3px); }
+.modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 26, 19, .52); backdrop-filter: blur(3px); }
 .composer-modal { width: min(600px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 16px; background: white; box-shadow: 0 25px 70px rgba(10, 26, 19, .25); }
 .composer-modal.wide { width: min(700px, 100%); }
-.composer-modal > header { display: flex; align-items: center; justify-content: space-between; padding: 19px 21px; border-bottom: 1px solid var(--border); }
+.composer-modal > header, .profile-modal > header { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 19px 21px; border-bottom: 1px solid var(--border); }
 .composer-modal h2 { margin: 0; font-size: 20px; }
 .composer-modal header button { width: 37px; height: 37px; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--canvas); cursor: pointer; }
 .composer-modal form { padding: 18px 21px 21px; }
@@ -378,7 +378,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .modal-footer a { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; text-decoration: none; }
 .publish-button:disabled { opacity: .4; cursor: default; }
 
-.toast { position: fixed; z-index: 80; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 30px); padding: 12px 16px; border-radius: 10px; background: var(--forest); color: white; box-shadow: 0 12px 40px rgba(15, 61, 46, .25); font-size: 11px; font-weight: 650; }
+.toast { position: fixed; z-index: 110; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 30px); padding: 12px 16px; border-radius: 10px; background: var(--forest); color: white; box-shadow: 0 12px 40px rgba(15, 61, 46, .25); font-size: 11px; font-weight: 650; }
 .mobile-nav { display: none; }
 
 .welcome-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% 0%, #d6f8e8, transparent 42%), linear-gradient(145deg, #f8fbf9, #eef5f1); }
@@ -1005,6 +1005,43 @@ html, body { background: #fafbfa; }
   box-shadow: var(--shadow);
 }
 .journey-map { width: 100%; height: 500px; }
+.map-empty-overlay {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  background: rgba(247, 250, 248, .78);
+  color: var(--forest);
+  text-align: center;
+  pointer-events: none;
+}
+.map-empty-overlay > * { pointer-events: auto; }
+.map-empty-overlay > span {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mint-wash);
+  color: var(--forest);
+}
+.map-empty-overlay h2 { margin: 4px 0 0; font-size: 18px; }
+.map-empty-overlay p { max-width: 320px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.map-empty-overlay button {
+  margin-top: 4px;
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 14px;
+  background: var(--forest);
+  color: white;
+  font-size: 10px;
+  font-weight: 720;
+  cursor: pointer;
+}
 .map-loading, .map-error {
   position: absolute;
   z-index: 3;

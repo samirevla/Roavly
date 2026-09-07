@@ -64,7 +64,7 @@ export function ExploreMap({
     filteredPosts.find((post) => post.id === selectedId) ?? filteredPosts[0] ?? null;
 
   useEffect(() => {
-    if (!geotaggedPosts.length || !mapHost.current) return;
+    if (!mapHost.current) return;
     let cancelled = false;
 
     async function initialiseMap() {
@@ -100,7 +100,7 @@ export function ExploreMap({
       markersRef.current = [];
       mapRef.current = null;
     };
-  }, [geotaggedPosts.length]);
+  }, []);
 
   useEffect(() => {
     if (mapStatus !== "ready" || !mapRef.current) return;
@@ -159,49 +159,52 @@ export function ExploreMap({
     if ((mapRef.current?.getZoom() ?? 0) < 11) mapRef.current?.setZoom(11);
   }
 
-  if (!geotaggedPosts.length) {
-    return (
-      <section className="explore-empty">
-        <span><MapPin size={34} /></span>
-        <h2>Your activity map starts here</h2>
-        <p>Share the first journey with a Google location and it will appear on this map for the community to discover.</p>
-        <button onClick={onShareJourney}>Share a journey</button>
-      </section>
-    );
-  }
+  const hasGeotagged = geotaggedPosts.length > 0;
 
   return (
     <section className="explore-screen">
       <div className="explore-intro">
-        <div><span className="eyebrow">Discover the outdoors</span><h2>Find real places through real journeys</h2><p>Select a pin to see what the Roavly community has done there.</p></div>
+        <div><span className="eyebrow">Discover the outdoors</span><h2>Find real places through real journeys</h2><p>{hasGeotagged ? "Select a pin to see what the Roavly community has done there." : "The map is ready — share a geotagged journey to drop the first pin."}</p></div>
         <span className="map-count"><LocateFixed size={17} />{geotaggedPosts.length} mapped {geotaggedPosts.length === 1 ? "journey" : "journeys"}</span>
       </div>
-      <nav className="activity-category-strip" aria-label="Explore activity categories">
-        {["All activities", ...activities].map((item) => (
-          <button key={item} className={activity === item ? "active" : ""} onClick={() => setActivity(item)}>{item === "All activities" ? "For you" : item}</button>
-        ))}
-      </nav>
-      <section className="visual-discovery" aria-label="Visual journey discovery">
-        <header><div><span className="eyebrow">COMMUNITY DISCOVERY</span><h3>Places worth getting outside for</h3></div><small>{filteredPosts.length} real {filteredPosts.length === 1 ? "adventure" : "adventures"}</small></header>
-        <div className="explore-masonry">
-          {filteredPosts.slice(0, 8).map((post, index) => (
-            <button key={post.id} className={index % 3 === 0 ? "feature" : ""} onClick={() => onOpenPost(post.id)}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={post.imageUrl} alt="" />
-              <span><small>{post.activityType}</small><strong>{post.location}</strong><em>by @{post.authorUsername}</em></span>
-            </button>
-          ))}
-        </div>
-      </section>
-      <div className="map-filters">
-        <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search locations, activities or people" aria-label="Search mapped journeys" /></label>
-        <label><SlidersHorizontal size={17} /><select value={activity} onChange={(event) => setActivity(event.target.value)} aria-label="Filter by activity"><option>All activities</option>{activities.map((item) => <option key={item}>{item}</option>)}</select></label>
-      </div>
-      <p className="map-instructions">Use Tab to reach map pins, arrow keys to move between them, and Enter to select.</p>
+      {hasGeotagged && (
+        <>
+          <nav className="activity-category-strip" aria-label="Explore activity categories">
+            {["All activities", ...activities].map((item) => (
+              <button key={item} className={activity === item ? "active" : ""} onClick={() => setActivity(item)}>{item === "All activities" ? "For you" : item}</button>
+            ))}
+          </nav>
+          <section className="visual-discovery" aria-label="Visual journey discovery">
+            <header><div><span className="eyebrow">COMMUNITY DISCOVERY</span><h3>Places worth getting outside for</h3></div><small>{filteredPosts.length} real {filteredPosts.length === 1 ? "adventure" : "adventures"}</small></header>
+            <div className="explore-masonry">
+              {filteredPosts.slice(0, 8).map((post, index) => (
+                <button key={post.id} className={index % 3 === 0 ? "feature" : ""} onClick={() => onOpenPost(post.id)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={post.imageUrl} alt="" />
+                  <span><small>{post.activityType}</small><strong>{post.location}</strong><em>by @{post.authorUsername}</em></span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <div className="map-filters">
+            <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search locations, activities or people" aria-label="Search mapped journeys" /></label>
+            <label><SlidersHorizontal size={17} /><select value={activity} onChange={(event) => setActivity(event.target.value)} aria-label="Filter by activity"><option>All activities</option>{activities.map((item) => <option key={item}>{item}</option>)}</select></label>
+          </div>
+          <p className="map-instructions">Use Tab to reach map pins, arrow keys to move between them, and Enter to select.</p>
+        </>
+      )}
       <div className="map-stage">
         <div ref={mapHost} className="journey-map" role="region" aria-label="Interactive map of public Roavly journeys" />
         {mapStatus === "loading" && <div className="map-loading"><span className="spin" /><p>Loading activity map…</p></div>}
         {mapStatus === "error" && <div className="map-error" role="alert"><MapPin size={28} /><strong>Map unavailable</strong><p>{mapError}</p><button onClick={() => window.location.reload()}>Try again</button></div>}
+        {!hasGeotagged && mapStatus !== "error" && mapStatus !== "loading" && (
+          <div className="map-empty-overlay" role="status">
+            <span><MapPin size={34} /></span>
+            <h2>Your activity map starts here</h2>
+            <p>Share the first journey with a Google location and it will appear on this map for the community to discover.</p>
+            <button type="button" onClick={onShareJourney}>Share a journey</button>
+          </div>
+        )}
         {selectedPost && mapStatus !== "error" && (
           <article className="map-preview" aria-live="polite">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -211,20 +214,24 @@ export function ExploreMap({
           </article>
         )}
       </div>
-      <div className="map-results-heading"><h3>Journeys in this view</h3><span>{filteredPosts.length} {filteredPosts.length === 1 ? "result" : "results"}</span></div>
-      {filteredPosts.length ? (
-        <div className="map-result-list">
-          {filteredPosts.map((post) => (
-            <button key={post.id} className={post.id === selectedPost?.id ? "selected" : ""} onClick={() => selectPost(post)}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={post.imageUrl} alt="" />
-              <span className="map-result-copy"><small>{post.activityType}</small><strong>{post.location}</strong><em>{post.caption}</em><i><Route size={14} />{formatDistance(post.distanceKm)} <Clock3 size={14} />{formatDuration(post.durationMinutes)} {post.elevationMetres > 0 && <><Mountain size={14} />{post.elevationMetres} m</>}</i></span>
-              <MapPin size={19} />
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="map-no-results"><Search size={25} /><p>No mapped journeys match those filters.</p></div>
+      {hasGeotagged && (
+        <>
+          <div className="map-results-heading"><h3>Journeys in this view</h3><span>{filteredPosts.length} {filteredPosts.length === 1 ? "result" : "results"}</span></div>
+          {filteredPosts.length ? (
+            <div className="map-result-list">
+              {filteredPosts.map((post) => (
+                <button key={post.id} className={post.id === selectedPost?.id ? "selected" : ""} onClick={() => selectPost(post)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={post.imageUrl} alt="" />
+                  <span className="map-result-copy"><small>{post.activityType}</small><strong>{post.location}</strong><em>{post.caption}</em><i><Route size={14} />{formatDistance(post.distanceKm)} <Clock3 size={14} />{formatDuration(post.durationMinutes)} {post.elevationMetres > 0 && <><Mountain size={14} />{post.elevationMetres} m</>}</i></span>
+                  <MapPin size={19} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="map-no-results"><Search size={25} /><p>No mapped journeys match those filters.</p></div>
+          )}
+        </>
       )}
     </section>
   );

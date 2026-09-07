@@ -336,6 +336,22 @@ export default function HomePage() {
     window.setTimeout(() => setToast(""), 3000);
   }
 
+  function openActivityMap() {
+    setDiscoverStart("Map");
+    setActiveNav("Explore");
+    showToast("Opened the activity map.");
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const target =
+          document.querySelector(".explore-screen") ||
+          document.querySelector(".map-empty-overlay") ||
+          document.querySelector(".explore-empty") ||
+          document.querySelector(".map-stage");
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
+
   function signIn() {
     window.location.href = "/login?return_to=%2F";
   }
@@ -662,7 +678,7 @@ export default function HomePage() {
           <button className="desktop-create-action" onClick={() => setComposerOpen(true)}><Plus size={19} /><span>Create</span></button>
         </nav>
         <div className="desktop-social-actions">
-          <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }} aria-label="Search and explore"><Search size={20} /></button>
+          <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
           <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications" className="header-notifications"><Bell size={20} />{incomingRequests.length > 0 && <i />}</button>
           <button onClick={() => setActiveNav("Messages")} aria-label="Messages" className="header-notifications"><MessageCircle size={20} />{unreadMessages > 0 && <i />}</button>
           <button className="desktop-avatar-button" onClick={() => setActiveNav("Profile")} aria-label="Open profile"><span className="avatar">{initial}</span></button>
@@ -693,7 +709,7 @@ export default function HomePage() {
         <header className="mobile-header">
           <button className="brand compact" onClick={() => setActiveNav("Feed")} aria-label="Roavly home"><RoavlyLogo /></button>
           <div className="mobile-header-actions">
-            <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }} aria-label="Search and explore"><Search size={20} /></button>
+            <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
             <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications"><Bell size={20} />{incomingRequests.length > 0 && <i>{incomingRequests.length}</i>}</button>
             <button onClick={() => setActiveNav("Messages")} aria-label="Messages"><MessageCircle size={20} />{unreadMessages > 0 && <i>{Math.min(99, unreadMessages)}</i>}</button>
           </div>
@@ -715,7 +731,7 @@ export default function HomePage() {
             </span>
           </div>
           <div className="header-actions">
-            <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }} aria-label="Search journeys"><Search size={21} /></button>
+            <button onClick={openActivityMap} aria-label="Search journeys"><Search size={21} /></button>
             <button onClick={() => setActiveNav("Friends")} aria-label="Open friends and notifications" className="header-notifications"><Bell size={21} />{incomingRequests.length > 0 && <i />}</button>
             <button onClick={() => setActiveNav("Messages")} aria-label="Open messages" className="header-notifications"><MessageCircle size={21} />{unreadMessages > 0 && <i />}</button>
             <button onClick={() => setActiveNav("Profile")} aria-label="Open profile"><span className="avatar">{initial}</span></button>
@@ -808,7 +824,7 @@ export default function HomePage() {
             outdoorMinutes={outdoorMinutes}
             openEdit={() => setProfileOpen(true)}
             openComposer={() => setComposerOpen(true)}
-            openMap={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }}
+            openMap={openActivityMap}
             toggleMotivation={toggleMotivation}
             addComment={addComment}
             deleteComment={deleteComment}
@@ -825,7 +841,7 @@ export default function HomePage() {
         <section className="rail-card explore-rail">
           <span><Compass size={22} /></span>
           <div><strong>Explore nearby</strong><p>Discover routes and outdoor spots through real community journeys.</p></div>
-          <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }}>Open map</button>
+          <button onClick={openActivityMap}>Open map</button>
         </section>
         <section className="rail-card">
           <div className="rail-title"><h2>Your friends</h2><button onClick={() => setActiveNav("Friends")}>View all</button></div>
@@ -1832,10 +1848,19 @@ function ProfileModal({ profile, setProfile, saving, close, submit }: { profile:
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile({ ...profile, [key]: value });
   }
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [close]);
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <section className="composer-modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><span className="eyebrow">Your Roavly identity</span><h2 id="profile-title">Edit profile</h2></div><button onClick={close} aria-label="Close profile editor"><X size={22} /></button></header>
+        <header className="profile-modal-header"><div><span className="eyebrow">Your Roavly identity</span><h2 id="profile-title">Edit profile</h2></div><button type="button" onClick={close} aria-label="Close profile editor"><X size={22} /></button></header>
         <form onSubmit={submit}>
           <div className="form-grid single">
             <label><span>Display name</span><input required value={profile.displayName} onChange={(event) => update("displayName", event.target.value)} /></label>
