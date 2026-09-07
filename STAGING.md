@@ -11,7 +11,7 @@ Confirm the exact hostname with wrangler deployments list or the Cloudflare dash
 ## One-time Cloudflare setup
 
 1. Authenticate with Cloudflare (wrangler login; do not commit tokens)
-2. Create D1: wrangler d1 create roavly-staging-db — paste database_id into wrangler.toml (replace REPLACE_D1_ID)
+2. Create D1: wrangler d1 create roavly-staging-db — paste database_id into wrangler.staging.toml (replace REPLACE_D1_ID)
 3. Create R2: wrangler r2 bucket create roavly-staging-media
 4. Ensure Node >= 22.13 (/workspace/.local/node-v22.13.0-linux-x64/bin is used automatically by scripts/deploy-staging.sh when present)
 
@@ -35,7 +35,7 @@ Asset binding: [assets] directory = "./dist/client" (matches vinext / current di
 
 | | Local / Sites preview | Staging Workers |
 |---|---|---|
-| Config | vite.config.ts Cloudflare plugin | wrangler.toml |
+| Config | vite.config.ts Cloudflare plugin | wrangler.staging.toml |
 | D1 | Miniflare under .wrangler/ | roavly-staging-db (remote) |
 | R2 | Local binding | roavly-staging-media |
 | Headers | ROAVLY_ALLOW_SITES_HEADERS from .env.local | [vars] = 0 |

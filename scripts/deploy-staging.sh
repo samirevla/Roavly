@@ -22,12 +22,12 @@ if ! wrangler whoami >/dev/null 2>&1; then
   echo "Then create resources once:" >&2
   echo "  wrangler d1 create roavly-staging-db" >&2
   echo "  wrangler r2 bucket create roavly-staging-media" >&2
-  echo "Paste the D1 database_id into wrangler.toml (replace REPLACE_D1_ID)." >&2
+  echo "Paste the D1 database_id into wrangler.staging.toml (replace REPLACE_D1_ID)." >&2
   exit 1
 fi
 
-if grep -q REPLACE_D1_ID wrangler.toml; then
-  echo "wrangler.toml still has placeholder database_id REPLACE_D1_ID." >&2
+if grep -q REPLACE_D1_ID wrangler.staging.toml; then
+  echo "wrangler.staging.toml still has placeholder database_id REPLACE_D1_ID." >&2
   exit 1
 fi
 
@@ -48,10 +48,10 @@ for sql in "${migrations_sorted[@]}"; do
 done
 
 echo "==> Publishing Worker..."
-wrangler deploy
+wrangler deploy -c wrangler.staging.toml
 
 echo
-echo "==> Vars already in wrangler.toml [vars]:"
+echo "==> Vars already in wrangler.staging.toml [vars]:"
 echo "    ROAVLY_ALLOW_SITES_HEADERS=0"
 echo "    AUTH_SESSION_DAYS=30"
 echo
