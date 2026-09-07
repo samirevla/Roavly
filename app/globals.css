@@ -360,7 +360,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .modal-author strong { font-size: 12px; }
 .modal-author small { color: var(--muted); font-size: 9px; }
 .composer-modal > form > textarea { width: 100%; min-height: 110px; resize: vertical; border: 0; outline: 0; padding: 14px 0; font-size: 14px; line-height: 1.55; }
-.real-photo-picker { position: relative; min-height: 185px; border: 2px dashed #bed4c9; border-radius: 12px; display: grid; place-items: center; overflow: hidden; background: #f8fbf9; color: var(--forest); cursor: pointer; }
+.real-photo-picker { position: relative; min-height: 185px; border: 1px solid #d5e5dc; border-radius: 16px; display: grid; place-items: center; overflow: hidden; background: #f7faf8; color: var(--forest); cursor: pointer; }
 .real-photo-picker > span { display: grid; justify-items: center; gap: 6px; }
 .real-photo-picker strong { font-size: 12px; }
 .real-photo-picker small { color: var(--muted); font-size: 9px; }
@@ -700,7 +700,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .motivation-chain-banner > div { display: grid; gap: 2px; }
 .motivation-chain-banner strong { font-size: 10px; }
 .motivation-chain-banner span { color: #567064; font-size: 8px; }
-.gpx-import { position: relative; min-height: 58px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-top: 11px; border: 1px dashed #bed5ca; border-radius: 11px; padding: 10px 12px; background: #f8fcfa; color: var(--forest); cursor: pointer; }
+.gpx-import { position: relative; min-height: 58px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-top: 11px; border: 1px solid #d7e5de; border-radius: 12px; padding: 10px 12px; background: #f8fbf9; color: var(--forest); cursor: pointer; }
 .gpx-import > span { display: grid; gap: 2px; }
 .gpx-import strong { font-size: 10px; }
 .gpx-import small { color: var(--muted); font-size: 8px; line-height: 1.4; }
@@ -2272,9 +2272,9 @@ button {
 }
 
 .real-photo-picker {
-  border-color: #addcc3;
-  border-radius: 14px;
-  background: var(--mint-wash);
+  border: 1px solid #d5e5dc;
+  border-radius: 16px;
+  background: #f7faf8;
 }
 
 .location-picker {
@@ -8891,10 +8891,10 @@ button:not(:disabled):active {
 .new-chat-modal h2 {
   color: var(--forest);
   font-family: var(--font-display);
-  font-size: 27px;
-  font-weight: 900;
-  letter-spacing: -.04em;
-  text-transform: uppercase;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  text-transform: none;
 }
 
 .real-photo-picker,
@@ -10510,4 +10510,174 @@ button.linkish {
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
+}
+
+/* ===== Share journey composer redesign (premium mobile flow) ===== */
+.share-composer > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.share-composer .composer-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.share-composer h2,
+.composer-modal.share-composer h2 {
+  margin: 0;
+  color: var(--forest);
+  font-family: var(--font-display), Outfit, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  text-transform: none !important;
+}
+
+.share-composer .real-photo-picker,
+.composer-modal .real-photo-picker {
+  border: 1px solid #d5e5dc !important;
+  border-style: solid !important;
+  border-radius: 16px !important;
+  background: #f7faf8;
+}
+
+.share-composer .real-photo-picker.has-error {
+  border-color: #e49a8f !important;
+  background: #fff8f6;
+}
+
+.composer-caption {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.composer-caption textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid #d5e5dc;
+  border-radius: 14px;
+  outline: 0;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.composer-caption textarea:focus {
+  border-color: #9ecbb4;
+  box-shadow: 0 0 0 3px rgba(47, 140, 104, .12);
+}
+
+.composer-essentials {
+  margin-top: 14px;
+}
+
+.composer-location {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid #d7e5de;
+  border-radius: 16px;
+  padding: 12px;
+  background: #fbfefd;
+}
+
+.composer-location .location-privacy-control {
+  margin-top: 0;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f4faf7;
+}
+
+.composer-location .location-privacy-control.compact {
+  grid-template-columns: 1fr minmax(180px, auto);
+}
+
+.share-composer .gpx-import,
+.journey-details-form .gpx-import {
+  border: 1px solid #d7e5de !important;
+  border-style: solid !important;
+  border-radius: 12px;
+  background: #f8fbf9;
+  margin: 10px 12px 0;
+}
+
+.share-composer .gpx-status {
+  margin: 8px 12px 0;
+}
+
+.share-composer .journey-details-form {
+  margin-top: 14px;
+}
+
+.share-composer .modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  margin-top: 18px;
+  margin-left: -21px;
+  margin-right: -21px;
+  margin-bottom: -21px;
+  padding: 12px 21px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: rgba(255, 255, 255, .96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.share-readiness .readiness-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.share-readiness .readiness-chips em {
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #edf5f0;
+  color: #4d6359;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: none;
+}
+
+@media (max-width: 720px) {
+  .composer-essentials {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-location .location-privacy-control.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .share-composer form {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .share-composer .modal-footer {
+    margin-left: -14px;
+    margin-right: -14px;
+    margin-bottom: -24px;
+    padding: 12px max(14px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+
+  .composer-caption textarea {
+    font-size: 16px;
+    min-height: 104px;
+  }
 }

@@ -1752,12 +1752,31 @@ function ComposerModal({
     !draft.placeId || !draft.latitude || !draft.longitude ? "a Google Maps location" : "",
   ].filter(Boolean);
   const canShare = !missingRequirements.length && !preparingPhoto && !publishing;
+  const readinessHint = publishing
+    ? "Uploading your journey…"
+    : preparingPhoto
+      ? "Preparing your photo…"
+      : !missingRequirements.length
+        ? "Ready to share"
+        : !photo
+          ? "Add a photo to continue"
+          : !draft.caption.trim()
+            ? "Add a caption to continue"
+            : !Number(draft.durationMinutes)
+              ? "Add time outdoors to continue"
+              : "Add a location to continue";
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
-      <section className="composer-modal wide" role="dialog" aria-modal="true" aria-labelledby="composer-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><span className="eyebrow">Public community post</span><h2 id="composer-title">Share a journey</h2></div><button onClick={close} aria-label="Close composer"><X size={22} /></button></header>
+      <section className="composer-modal wide share-composer" role="dialog" aria-modal="true" aria-labelledby="composer-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <p className="composer-kicker">Visible to Waymark members</p>
+            <h2 id="composer-title">Share a journey</h2>
+          </div>
+          <button onClick={close} aria-label="Close composer"><X size={22} /></button>
+        </header>
         <form onSubmit={submit}>
-          <div className="modal-author"><span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>Visible to signed-in Waymark members</small></span></div>
+          <div className="modal-author"><span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>Posting as you</small></span></div>
           {draft.inspiredByPostId && <div className="motivation-chain-banner"><Sparkles size={19} /><div><strong>You were motivated by another journey</strong><span>Sharing this will add your outdoor time to that post’s positive impact.</span></div></div>}
           <label className={`real-photo-picker ${photoPreview ? "has-photo" : ""} ${composerError && !photo ? "has-error" : ""}`}>
             {preparingPhoto ? (
@@ -1765,7 +1784,7 @@ function ComposerModal({
             ) : photoPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="photo-preview" src={photoPreview} alt="Selected journey upload preview" />
-            ) : <span><ImagePlus size={30} /><strong>Choose from your iPhone</strong><small>HEIC, HEIF, JPG, PNG or WebP · automatically optimised</small></span>}
+            ) : <span><ImagePlus size={30} /><strong>Add a photo</strong><small>Tap to add from your library · HEIC, JPG, PNG or WebP</small></span>}
             <input
               type="file"
               accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp"
@@ -1784,41 +1803,48 @@ function ComposerModal({
               <p className="photo-upload-ready"><Check size={16} /><span><strong>Photo ready</strong> You can keep filling in the post.</span></p>
             ) : null}
           </div>
-          <textarea value={draft.caption} onChange={(event) => update("caption", event.target.value)} placeholder="What made this adventure worth sharing?" maxLength={500} />
-          <div className="form-grid">
+          <label className="composer-caption">
+            <span>Caption</span>
+            <textarea value={draft.caption} onChange={(event) => update("caption", event.target.value)} placeholder="What made this adventure worth sharing?" maxLength={500} />
+          </label>
+          <div className="composer-essentials form-grid">
             <label><span>Activity</span><select value={draft.activityType} onChange={(event) => update("activityType", event.target.value)}><option>Hiking</option><option>Running</option><option>Rock climbing</option><option>Snowboarding</option><option>Cycling</option><option>Kayaking</option><option>Surfing</option><option>Walking</option><option>Other outdoor activity</option></select></label>
-            <label><span>Distance (km) <em>optional</em></span><input type="number" min="0" max="500" step="0.1" value={draft.distanceKm} onChange={(event) => update("distanceKm", event.target.value)} /></label>
             <label><span>Time outdoors (minutes)</span><input type="number" min="1" max="10080" required value={draft.durationMinutes} onChange={(event) => update("durationMinutes", event.target.value)} /><small>Added to your Time Outdoors tracker.</small></label>
-            <label><span>Elevation (metres) <em>optional</em></span><input type="number" min="0" max="10000" value={draft.elevationMetres} onChange={(event) => update("elevationMetres", event.target.value)} /></label>
           </div>
-          <label className="gpx-import"><Route size={18} /><span><strong>Import activity file</strong><small>Optional GPX import fills distance, time and elevation. Garmin exports work here without connecting your account.</small></span><em>Choose GPX</em><input type="file" accept=".gpx,application/gpx+xml" onChange={(event) => { void importGpx(event.target.files?.[0] ?? null); event.currentTarget.value = ""; }} /></label>
-          {gpxStatus && <p className="gpx-status">{gpxStatus}</p>}
-          <GoogleLocationPicker
-            value={draft.placeId ? {
-              location: draft.location,
-              latitude: draft.latitude,
-              longitude: draft.longitude,
-              placeId: draft.placeId,
-            } satisfies SelectedPlace : null}
-            onSelect={(place) => setDraft((current) => ({
-              ...current,
-              location: place?.location ?? "",
-              latitude: place?.latitude ?? "",
-              longitude: place?.longitude ?? "",
-              placeId: place?.placeId ?? "",
-            }))}
-          />
-          <section className="location-privacy-control">
-            <div><ShieldCheck size={20} /><span><strong>Protect the exact spot</strong><small>Approximate is the safest default for public discovery.</small></span></div>
-            <select value={draft.locationPrivacy} onChange={(event) => update("locationPrivacy", event.target.value)}>
-              <option value="approximate">Approximate area for everyone</option>
-              <option value="friends" disabled={ageBand !== "18+"}>Exact for friends, approximate for others</option>
-              <option value="exact" disabled={ageBand !== "18+"}>Exact pin for everyone</option>
-            </select>
-            {ageBand !== "18+" && <p>Precise sharing is only available to profiles confirmed as 18+. Your post will use an approximate area.</p>}
-          </section>
+          <div className="composer-location">
+            <GoogleLocationPicker
+              value={draft.placeId ? {
+                location: draft.location,
+                latitude: draft.latitude,
+                longitude: draft.longitude,
+                placeId: draft.placeId,
+              } satisfies SelectedPlace : null}
+              onSelect={(place) => setDraft((current) => ({
+                ...current,
+                location: place?.location ?? "",
+                latitude: place?.latitude ?? "",
+                longitude: place?.longitude ?? "",
+                placeId: place?.placeId ?? "",
+              }))}
+            />
+            <section className="location-privacy-control compact">
+              <div><ShieldCheck size={18} /><span><strong>Location privacy</strong><small>Approximate is the safest default.</small></span></div>
+              <select value={draft.locationPrivacy} onChange={(event) => update("locationPrivacy", event.target.value)}>
+                <option value="approximate">Approximate area for everyone</option>
+                <option value="friends" disabled={ageBand !== "18+"}>Exact for friends, approximate for others</option>
+                <option value="exact" disabled={ageBand !== "18+"}>Exact pin for everyone</option>
+              </select>
+              {ageBand !== "18+" && <p>Precise sharing is only available to profiles confirmed as 18+. Your post will use an approximate area.</p>}
+            </section>
+          </div>
           <details className="journey-details-form">
-            <summary><Info size={18} /> Add useful spot details <span>optional</span></summary>
+            <summary><Info size={18} /> More details <span>optional</span></summary>
+            <div className="form-grid">
+              <label><span>Distance (km) <em>optional</em></span><input type="number" min="0" max="500" step="0.1" value={draft.distanceKm} onChange={(event) => update("distanceKm", event.target.value)} /></label>
+              <label><span>Elevation (metres) <em>optional</em></span><input type="number" min="0" max="10000" value={draft.elevationMetres} onChange={(event) => update("elevationMetres", event.target.value)} /></label>
+            </div>
+            <label className="gpx-import"><Route size={18} /><span><strong>Import activity file</strong><small>Optional GPX fills distance, time and elevation.</small></span><em>Choose GPX</em><input type="file" accept=".gpx,application/gpx+xml" onChange={(event) => { void importGpx(event.target.files?.[0] ?? null); event.currentTarget.value = ""; }} /></label>
+            {gpxStatus && <p className="gpx-status">{gpxStatus}</p>}
             <div className="form-grid">
               <label><span>Difficulty</span><select value={draft.difficulty} onChange={(event) => update("difficulty", event.target.value)}><option>Easy</option><option>Moderate</option><option>Hard</option><option>Expert</option></select></label>
               <label><span>Conditions</span><input maxLength={200} value={draft.conditions} onChange={(event) => update("conditions", event.target.value)} placeholder="Dry, muddy, icy, exposed…" /></label>
@@ -1833,10 +1859,15 @@ function ComposerModal({
           </details>
           <div className="modal-footer">
             <span className="share-readiness">
-              <small>{draft.caption.length}/500 characters</small>
-              <strong>{publishing ? "Uploading your journey…" : missingRequirements.length ? `Still needed: ${missingRequirements.join(", ")}` : "Everything is ready to share"}</strong>
+              <small>{draft.caption.length}/500</small>
+              <strong>{readinessHint}</strong>
+              {!!missingRequirements.length && !publishing && !preparingPhoto && (
+                <span className="readiness-chips" aria-label="Still needed">
+                  {missingRequirements.map((item) => <em key={item}>{item.replace(/^a /, "")}</em>)}
+                </span>
+              )}
             </span>
-            <button className="publish-button" type="submit" disabled={!canShare}>{publishing ? "Uploading…" : preparingPhoto ? "Preparing photo…" : "Share journey"}</button>
+            <button className="publish-button" type="submit" disabled={!canShare}>{publishing ? "Uploading…" : preparingPhoto ? "Preparing photo…" : "Share"}</button>
           </div>
         </form>
       </section>
