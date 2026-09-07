@@ -16,6 +16,12 @@ if (!existsSync(".env.local")) {
   console.log("[roavly] Created .env.local from .env.example");
 }
 
+console.log("[roavly] Applying local D1 migrations…");
+const migrate = spawnSync(process.execPath, [join("scripts", "migrate-local-d1.mjs")], {
+  stdio: "inherit",
+});
+if (migrate.status) process.exit(migrate.status || 1);
+
 console.log([
   "",
   "Standalone local run",

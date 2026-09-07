@@ -14,6 +14,9 @@ Roavly authenticates with email + password. ChatGPT/Sites login is not required.
 4. Sign up on welcome screen or /login with email + password (8+ chars)
 5. Confirm empty feed loads, create a journey post with a photo, then sign out
 
+If local D1 has no sqlite yet (fresh clone), start the Vite/Miniflare process once (step 2 above) so .wrangler creates the D1 sqlite, then re-run setup (step 1) so drizzle migrations apply. Setup runs migrate-local-d1 after creating .env.local.
+
+
 Maps and Stripe are optional for core auth/social flows. No third-party login.
 
 ## Automated tests
