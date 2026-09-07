@@ -5,19 +5,33 @@ type RoavlyLogoProps = {
 
 export function RoavlyLogo({ compact = false, className = "" }: RoavlyLogoProps) {
   return (
-    <span className={`roavly-logo ${compact ? "roavly-logo-compact" : ""} ${className}`.trim()} aria-hidden="true">
+    <span
+      className={`roavly-logo ${compact ? "roavly-logo-compact" : ""} ${className}`.trim()}
+      aria-hidden="true"
+    >
       <span className="roavly-logo-tile">
-        <svg viewBox="0 0 72 72" role="img">
+        <svg viewBox="0 0 72 72" role="img" aria-hidden="true">
+          {/* Soft twin peaks — geometric mountain silhouette */}
+          <path
+            className="roavly-logo-mountain"
+            d="M10 54 L28 26 L36 38 L46 20 L62 54 Z"
+          />
+          {/* Subtle mid ridge for depth */}
           <path
             className="roavly-logo-ridge"
-            d="M18 59V16H42.5C54.7 16 61 22.2 61 31.8C61 41.8 54.1 47 42.2 47H18"
+            d="M28 26 L36 38 L46 20"
           />
-          <path className="roavly-logo-trail" d="M34 42.5L56 61" />
-          <circle className="roavly-logo-waypoint-keyline" cx="34" cy="42.5" r="7.4" />
-          <circle className="roavly-logo-waypoint" cx="34" cy="42.5" r="5.2" />
+          {/* Trail path climbing toward the pin */}
+          <path
+            className="roavly-logo-trail"
+            d="M22 54 C28 48 32 46 38 44"
+          />
+          {/* Trail / location pin */}
+          <circle className="roavly-logo-pin-ring" cx="42" cy="40" r="6.2" />
+          <circle className="roavly-logo-pin" cx="42" cy="40" r="3.6" />
         </svg>
       </span>
-      {!compact && <span className="roavly-wordmark">ROAVLY</span>}
+      {!compact && <span className="roavly-wordmark">Roavly</span>}
     </span>
   );
 }

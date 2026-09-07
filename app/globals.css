@@ -17,7 +17,7 @@
 
 * { box-sizing: border-box; }
 html { background: var(--canvas); }
-body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-geist-sans), Inter, Arial, sans-serif; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-sans), "Plus Jakarta Sans", Inter, Arial, sans-serif; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgba(47, 163, 107, .25); outline-offset: 2px; }
@@ -48,12 +48,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   background: transparent;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 0 14px 28px;
   color: var(--forest);
-  font-size: 23px;
-  font-weight: 840;
-  letter-spacing: .14em;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.03em;
   cursor: pointer;
 }
 
@@ -1616,7 +1617,7 @@ body {
 
 body {
   color: var(--ink);
-  font-family: var(--font-geist-sans), "Avenir Next", "Segoe UI", sans-serif;
+  font-family: var(--font-sans), "Plus Jakarta Sans", "Segoe UI", sans-serif;
   font-size: 14px;
 }
 
@@ -3235,13 +3236,15 @@ body {
 .loading-brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   color: var(--forest);
 }
 
 .loading-brand strong {
-  font-size: 29px;
-  letter-spacing: -.045em;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.03em;
 }
 
 .loading-nav {
@@ -7777,8 +7780,8 @@ button:not(:disabled):active {
   --border: #dfe5e2;
   --soft-border: #edf0ee;
   --shadow: 0 14px 38px rgba(16, 39, 31, .08);
-  --font-ui: "Avenir Next", "SF Pro Text", var(--font-geist-sans), Arial, sans-serif;
-  --font-display: "Avenir Next Condensed", "Arial Narrow", var(--font-geist-sans), sans-serif;
+  --font-ui: var(--font-sans), "Plus Jakarta Sans", "SF Pro Text", Arial, sans-serif;
+  --font-display: var(--font-outfit), Outfit, sans-serif;
 }
 
 html,
@@ -7811,7 +7814,7 @@ h3,
 .rail-title h2,
 .passport-summary h2 {
   font-family: var(--font-display);
-  font-stretch: condensed;
+  font-stretch: normal;
 }
 
 button {
@@ -7827,48 +7830,66 @@ button:not(:disabled):active {
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--forest);
+  line-height: 1;
 }
 
 .roavly-logo-tile {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   flex: 0 0 auto;
-  border: 1px solid #e6ebe8;
-  border-radius: 10px;
+  border: 0;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  background: #fff;
-  box-shadow: 0 5px 16px rgba(16, 39, 31, .08);
+  background: linear-gradient(145deg, #0f3d2e 0%, #196048 100%);
+  box-shadow: 0 6px 18px rgba(15, 61, 46, .22);
+  overflow: hidden;
 }
 
 .roavly-logo-tile svg {
-  width: 31px;
-  height: 31px;
+  width: 28px;
+  height: 28px;
   overflow: visible;
-  fill: none;
 }
 
-.roavly-logo-ridge,
-.roavly-logo-trail {
+.roavly-logo-mountain {
+  fill: rgba(255, 255, 255, .95);
+}
+
+.roavly-logo-ridge {
   fill: none;
-  stroke-width: 8;
+  stroke: rgba(167, 243, 208, .55);
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.roavly-logo-ridge { stroke: var(--forest); }
-.roavly-logo-trail { stroke: var(--emerald); }
-.roavly-logo-waypoint-keyline { fill: #fff; }
-.roavly-logo-waypoint { fill: var(--signal); }
+.roavly-logo-trail {
+  fill: none;
+  stroke: #a7f3d0;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.roavly-logo-pin-ring {
+  fill: rgba(15, 61, 46, .35);
+}
+
+.roavly-logo-pin {
+  fill: #a7f3d0;
+}
 
 .roavly-wordmark {
   color: var(--forest);
-  font-size: 20px;
-  font-weight: 850;
-  letter-spacing: .17em;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.03em;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .app-shell {
@@ -7906,10 +7927,14 @@ button:not(:disabled):active {
 
 .kinetic-brand {
   width: max-content;
+  max-width: 100%;
   border: 0;
   padding: 0;
   background: transparent;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
 }
 
 .desktop-primary-nav {
@@ -8923,30 +8948,35 @@ button:not(:disabled):active {
 }
 
 .welcome-logo {
-  margin-bottom: 22px;
+  margin-bottom: 24px;
+  gap: 14px;
 }
 
 .welcome-logo .roavly-logo-tile {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
 }
 
 .welcome-logo .roavly-logo-tile svg {
-  width: 48px;
-  height: 48px;
+  width: 38px;
+  height: 38px;
 }
 
 .welcome-logo .roavly-wordmark {
-  font-size: 28px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -.035em;
 }
 
 .welcome-card h1 {
   color: var(--forest);
-  font-size: clamp(40px, 7vw, 64px);
-  font-weight: 900;
-  letter-spacing: -.06em;
-  line-height: .94;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 6.2vw, 52px);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.05;
+  text-transform: none;
 }
 
 .welcome-card > button {
@@ -8957,6 +8987,7 @@ button:not(:disabled):active {
 .loading-brand .roavly-logo-tile {
   width: 40px;
   height: 40px;
+  border-radius: 12px;
 }
 
 @keyframes kineticBurst {
@@ -9044,19 +9075,27 @@ button:not(:disabled):active {
     padding: 0;
   }
 
+  .mobile-header .roavly-logo {
+    gap: 9px;
+    max-width: min(58vw, 220px);
+  }
+
   .mobile-header .roavly-logo-tile {
-    width: 38px;
-    height: 38px;
-    border-radius: 9px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
   }
 
   .mobile-header .roavly-logo-tile svg {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
   }
 
   .mobile-header .roavly-wordmark {
     font-size: 18px;
+    letter-spacing: -.03em;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .mobile-header-actions > button {
