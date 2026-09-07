@@ -24,7 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ExploreMap, JourneyMapPost } from "./explore-map";
+import { NEAR_ME_RADIUS_KM, type GeoPoint } from "../geo";
+import { ExploreMap, JourneyMapPost, type UserLocationStatus } from "./explore-map";
 import { MonetizationView } from "./monetization-view";
 
 type DiscoverTab = "Map" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips";
@@ -154,6 +155,10 @@ export function DiscoverView({
   friends,
   onOpenConversation,
   showToast,
+  userLocation = null,
+  locationStatus = "idle",
+  onRequestLocation,
+  nearMeRadiusKm = NEAR_ME_RADIUS_KM,
 }: {
   initialTab?: DiscoverTab;
   posts: JourneyMapPost[];
@@ -164,6 +169,10 @@ export function DiscoverView({
   friends: JourneyFriend[];
   onOpenConversation: (conversationId: string) => void;
   showToast: (message: string) => void;
+  userLocation?: GeoPoint | null;
+  locationStatus?: UserLocationStatus;
+  onRequestLocation?: () => void;
+  nearMeRadiusKm?: number;
 }) {
   const tab = initialTab;
   const [hub, setHub] = useState<HubData>(emptyHub);
@@ -289,7 +298,15 @@ export function DiscoverView({
       </nav>
 
       {tab === "Map" && (
-        <ExploreMap posts={posts} onOpenPost={onOpenPost} onShareJourney={onShareJourney} />
+        <ExploreMap
+          posts={posts}
+          onOpenPost={onOpenPost}
+          onShareJourney={onShareJourney}
+          userLocation={userLocation}
+          locationStatus={locationStatus}
+          onRequestLocation={onRequestLocation}
+          radiusKm={nearMeRadiusKm}
+        />
       )}
       {tab === "Saved" && (
         <SavedView

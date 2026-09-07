@@ -2,6 +2,7 @@
 
 import { Clock3, LocateFixed, MapPin, Mountain, Route, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { filterNearbyPosts, NEAR_ME_RADIUS_KM, type GeoPoint } from "../geo";
 import { loadGoogleMaps } from "../google-maps";
 
 export type JourneyMapPost = {
@@ -18,37 +19,54 @@ export type JourneyMapPost = {
   elevationMetres: number;
   imageUrl: string;
   isOwner?: boolean;
+  distanceFromUserKm?: number;
 };
+
+export type UserLocationStatus = "idle" | "pending" | "ready" | "denied" | "unavailable";
 
 export function ExploreMap({
   posts,
   onOpenPost,
   onShareJourney,
+  userLocation = null,
+  locationStatus = "idle",
+  onRequestLocation,
+  radiusKm = NEAR_ME_RADIUS_KM,
 }: {
   posts: JourneyMapPost[];
   onOpenPost: (postId: string) => void;
   onShareJourney: () => void;
+  userLocation?: GeoPoint | null;
+  locationStatus?: UserLocationStatus;
+  onRequestLocation?: () => void;
+  radiusKm?: number;
 }) {
-  const geotaggedPosts = useMemo(
-    () => posts.filter((post) => Number.isFinite(post.latitude) && Number.isFinite(post.longitude)),
-    [posts],
+  const nearbyPosts = useMemo(
+    () => filterNearbyPosts(posts, userLocation, radiusKm),
+    [posts, radiusKm, userLocation],
   );
   const activities = useMemo(
-    () => Array.from(new Set(geotaggedPosts.map((post) => post.activityType))).sort(),
-    [geotaggedPosts],
+    () => Array.from(new Set(nearbyPosts.map((post) => post.activityType))).sort(),
+    [nearbyPosts],
   );
   const [query, setQuery] = useState("");
   const [activity, setActivity] = useState("All activities");
-  const [selectedId, setSelectedId] = useState<string | null>(geotaggedPosts[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(nearbyPosts[0]?.id ?? null);
   const [mapStatus, setMapStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [mapError, setMapError] = useState("");
   const mapHost = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
 
+  useEffect(() => {
+    if (!selectedId || !nearbyPosts.some((post) => post.id === selectedId)) {
+      setSelectedId(nearbyPosts[0]?.id ?? null);
+    }
+  }, [nearbyPosts, selectedId]);
+
   const filteredPosts = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return geotaggedPosts.filter((post) => {
+    return nearbyPosts.filter((post) => {
       const activityMatches = activity === "All activities" || post.activityType === activity;
       const textMatches =
         !term ||
@@ -58,7 +76,7 @@ export function ExploreMap({
           .includes(term);
       return activityMatches && textMatches;
     });
-  }, [activity, geotaggedPosts, query]);
+  }, [activity, nearbyPosts, query]);
 
   const selectedPost =
     filteredPosts.find((post) => post.id === selectedId) ?? filteredPosts[0] ?? null;
@@ -75,8 +93,10 @@ export function ExploreMap({
         const { Map } = google.maps;
         if (cancelled || !mapHost.current) return;
         mapRef.current = new Map(mapHost.current, {
-          center: { lat: -37.8136, lng: 144.9631 },
-          zoom: 7,
+          center: userLocation
+            ? { lat: userLocation.lat, lng: userLocation.lng }
+            : { lat: -37.8136, lng: 144.9631 },
+          zoom: userLocation ? 10 : 7,
           mapId,
           mapTypeControl: false,
           streetViewControl: false,
@@ -152,6 +172,12 @@ export function ExploreMap({
     };
   }, [filteredPosts, mapStatus, selectedId]);
 
+  useEffect(() => {
+    if (mapStatus !== "ready" || !mapRef.current || !userLocation) return;
+    mapRef.current.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+    if ((mapRef.current.getZoom() ?? 0) < 10) mapRef.current.setZoom(10);
+  }, [mapStatus, userLocation]);
+
   function selectPost(post: JourneyMapPost) {
     setSelectedId(post.id);
     const position = { lat: Number(post.latitude), lng: Number(post.longitude) };
@@ -159,15 +185,49 @@ export function ExploreMap({
     if ((mapRef.current?.getZoom() ?? 0) < 11) mapRef.current?.setZoom(11);
   }
 
-  const hasGeotagged = geotaggedPosts.length > 0;
+  const locationReady = locationStatus === "ready" && Boolean(userLocation);
+  const hasNearby = nearbyPosts.length > 0;
+  const locationBlocked = locationStatus === "denied" || locationStatus === "unavailable";
 
   return (
     <section className="explore-screen">
       <div className="explore-intro">
-        <div><span className="eyebrow">Discover the outdoors</span><h2>Find real places through real journeys</h2><p>{hasGeotagged ? "Select a pin to see what the Waymark community has done there." : "The map is ready — share a geotagged journey to drop the first pin."}</p></div>
-        <span className="map-count"><LocateFixed size={17} />{geotaggedPosts.length} mapped {geotaggedPosts.length === 1 ? "journey" : "journeys"}</span>
+        <div>
+          <span className="eyebrow">Near Me · within {radiusKm} km</span>
+          <h2>Journeys close to you</h2>
+          <p>
+            {locationStatus === "pending"
+              ? "Finding your location so we can surface adventures within about 50 km…"
+              : locationBlocked
+                ? "Location is needed to show Near Me journeys. You can enable it anytime."
+                : hasNearby
+                  ? "Nearby pins are ranked closest first. Select one to see what the community has done there."
+                  : locationReady
+                    ? "Nothing geotagged within about 50 km yet — be the first to share a local journey."
+                    : "Allow location to discover outdoor journeys within about 50 km of you."}
+          </p>
+        </div>
+        <span className="map-count"><LocateFixed size={17} />{hasNearby ? `${nearbyPosts.length} nearby` : locationReady ? "0 nearby" : "Near Me"}</span>
       </div>
-      {hasGeotagged && (
+      {(locationStatus === "pending" || locationBlocked) && (
+        <div className={`near-me-banner ${locationBlocked ? "blocked" : ""}`} role="status">
+          <LocateFixed size={18} />
+          <div>
+            <strong>{locationStatus === "pending" ? "Using your location" : "Location unavailable"}</strong>
+            <p>
+              {locationStatus === "pending"
+                ? "Near Me only shows journeys within about 50 km once your position is ready."
+                : locationStatus === "denied"
+                  ? "Location permission was denied. Enable it in your browser settings, then try again."
+                  : "This device could not provide a location. Near Me needs GPS or network location."}
+            </p>
+          </div>
+          {locationBlocked && onRequestLocation ? (
+            <button type="button" onClick={onRequestLocation}>Try again</button>
+          ) : null}
+        </div>
+      )}
+      {hasNearby && (
         <>
           <nav className="activity-category-strip" aria-label="Explore activity categories">
             {["All activities", ...activities].map((item) => (
@@ -197,12 +257,28 @@ export function ExploreMap({
         <div ref={mapHost} className="journey-map" role="region" aria-label="Interactive map of public Waymark journeys" />
         {mapStatus === "loading" && <div className="map-loading"><span className="spin" /><p>Loading activity map…</p></div>}
         {mapStatus === "error" && <div className="map-error" role="alert"><MapPin size={28} /><strong>Map unavailable</strong><p>{mapError}</p><button onClick={() => window.location.reload()}>Try again</button></div>}
-        {!hasGeotagged && mapStatus !== "error" && mapStatus !== "loading" && (
+        {!hasNearby && mapStatus !== "error" && mapStatus !== "loading" && (
           <div className="map-empty-overlay" role="status">
             <span><MapPin size={34} /></span>
-            <h2>Your activity map starts here</h2>
-            <p>Share the first journey with a Google location and it will appear on this map for the community to discover.</p>
-            <button type="button" onClick={onShareJourney}>Share a journey</button>
+            <h2>
+              {locationBlocked
+                ? "Turn on location for Near Me"
+                : locationStatus === "pending"
+                  ? "Finding journeys near you"
+                  : "No journeys within 50 km"}
+            </h2>
+            <p>
+              {locationBlocked
+                ? "Near Me keeps discovery local. Enable location, or share a geotagged journey so neighbours can find it."
+                : locationStatus === "pending"
+                  ? "Hang tight — we are waiting for your current position."
+                  : "Be the first to drop a pin nearby. Journeys without a map location stay in Community, not Near Me."}
+            </p>
+            {locationBlocked && onRequestLocation ? (
+              <button type="button" onClick={onRequestLocation}>Enable location</button>
+            ) : (
+              <button type="button" onClick={onShareJourney}>Share a journey</button>
+            )}
           </div>
         )}
         {selectedPost && mapStatus !== "error" && (
@@ -214,7 +290,7 @@ export function ExploreMap({
           </article>
         )}
       </div>
-      {hasGeotagged && (
+      {hasNearby && (
         <>
           <div className="map-results-heading"><h3>Journeys in this view</h3><span>{filteredPosts.length} {filteredPosts.length === 1 ? "result" : "results"}</span></div>
           {filteredPosts.length ? (
@@ -223,7 +299,7 @@ export function ExploreMap({
                 <button key={post.id} className={post.id === selectedPost?.id ? "selected" : ""} onClick={() => selectPost(post)}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={post.imageUrl} alt="" />
-                  <span className="map-result-copy"><small>{post.activityType}</small><strong>{post.location}</strong><em>{post.caption}</em><i><Route size={14} />{formatDistance(post.distanceKm)} <Clock3 size={14} />{formatDuration(post.durationMinutes)} {post.elevationMetres > 0 && <><Mountain size={14} />{post.elevationMetres} m</>}</i></span>
+                  <span className="map-result-copy"><small>{post.activityType}{typeof post.distanceFromUserKm === "number" ? ` · ${formatAway(post.distanceFromUserKm)} away` : ""}</small><strong>{post.location}</strong><em>{post.caption}</em><i><Route size={14} />{formatDistance(post.distanceKm)} <Clock3 size={14} />{formatDuration(post.durationMinutes)} {post.elevationMetres > 0 && <><Mountain size={14} />{post.elevationMetres} m</>}</i></span>
                   <MapPin size={19} />
                 </button>
               ))}
@@ -239,6 +315,11 @@ export function ExploreMap({
 
 function formatDistance(distance: number) {
   return distance > 0 ? `${distance.toFixed(distance % 1 ? 1 : 0)} km` : "No distance";
+}
+
+function formatAway(distance: number) {
+  if (distance < 1) return `${Math.max(0.1, distance).toFixed(1)} km`;
+  return `${distance.toFixed(distance < 10 && distance % 1 ? 1 : 0)} km`;
 }
 
 function formatDuration(minutes: number) {

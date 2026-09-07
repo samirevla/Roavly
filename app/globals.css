@@ -191,6 +191,42 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .feed-tabs button { height: 44px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 650; }
 .feed-tabs button.selected { border-bottom-color: var(--forest); color: var(--forest); font-weight: 780; }
 
+.near-me-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(8, 127, 91, 0.08), rgba(255, 255, 255, 0.92));
+  color: var(--ink);
+}
+.near-me-banner.blocked {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.08), rgba(255, 255, 255, 0.95));
+}
+.near-me-banner > svg { flex: 0 0 auto; margin-top: 2px; color: var(--forest); }
+.near-me-banner.blocked > svg { color: #b45309; }
+.near-me-banner strong { display: block; font-size: 12px; font-weight: 760; }
+.near-me-banner p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.near-me-banner button {
+  margin-left: auto;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--forest);
+  color: white;
+  font-size: 10px;
+  font-weight: 720;
+  cursor: pointer;
+}
+@media (max-width: 720px) {
+  .near-me-banner { margin-left: 10px; margin-right: 10px; }
+  .feed-tabs { gap: 14px; }
+}
+
+
 .post-card { overflow: hidden; margin-bottom: 21px; }
 .post-header { min-height: 74px; display: flex; align-items: center; gap: 11px; padding: 14px 18px; }
 .post-author { display: grid; gap: 4px; min-width: 0; }

@@ -14,6 +14,7 @@ import {
   ImagePlus,
   Info,
   LoaderCircle,
+  LocateFixed,
   LogIn,
   LogOut,
   MapPin,
@@ -52,8 +53,17 @@ import {
   reportPhotoPreparationFailure,
   reportPhotoUploadFailure,
 } from "./client-photo";
+import {
+  filterNearbyPosts,
+  haversineKm,
+  NEAR_ME_RADIUS_KM,
+  type GeoPoint,
+} from "./geo";
 import { friendlyUploadError } from "./photo-upload";
 import { POSITIVE_ENCOURAGEMENTS } from "./positive-comments";
+
+type FeedMode = "Near Me" | "Community" | "Friends";
+type UserLocationStatus = "idle" | "pending" | "ready" | "denied" | "unavailable";
 
 type NavKey = "Feed" | "Explore" | "Messages" | "Friends" | "Profile";
 type Relationship = "none" | "outgoing" | "incoming" | "friends";
@@ -213,7 +223,9 @@ const outdoorAchievements = [
 
 export default function HomePage() {
   const [activeNav, setActiveNav] = useState<NavKey>("Feed");
-  const [feedMode, setFeedMode] = useState<"Community" | "Friends">("Community");
+  const [feedMode, setFeedMode] = useState<FeedMode>("Near Me");
+  const [userLocation, setUserLocation] = useState<GeoPoint | null>(null);
+  const [locationStatus, setLocationStatus] = useState<UserLocationStatus>("idle");
   const [viewer, setViewer] = useState<Viewer | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<SavedPost[]>([]);
@@ -281,6 +293,16 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    const needsLocation =
+      (activeNav === "Feed" && feedMode === "Near Me") ||
+      (activeNav === "Explore" && discoverStart === "Map");
+    if (!viewer || !needsLocation) return;
+    requestUserLocation();
+    // Intentionally only re-run when the surface that needs location is entered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeNav, discoverStart, feedMode, viewer]);
+
+  useEffect(() => {
     if (!viewer) return;
     let active = true;
     async function refreshUnread() {
@@ -304,10 +326,17 @@ export default function HomePage() {
     () => new Set(people.filter((person) => person.relationship === "friends").map((person) => person.username)),
     [people],
   );
+  const nearMeRadiusKm = profile?.travelRadiusKm || NEAR_ME_RADIUS_KM;
   const visiblePosts = useMemo(() => {
-    if (feedMode === "Community") return posts;
-    return posts.filter((post) => post.isOwner || friendUsernames.has(post.authorUsername));
-  }, [feedMode, friendUsernames, posts]);
+    if (feedMode === "Friends") {
+      return posts.filter((post) => post.isOwner || friendUsernames.has(post.authorUsername));
+    }
+    if (feedMode === "Near Me") {
+      if (locationStatus !== "ready" || !userLocation) return [];
+      return filterNearbyPosts(posts, userLocation, nearMeRadiusKm);
+    }
+    return posts;
+  }, [feedMode, friendUsernames, locationStatus, nearMeRadiusKm, posts, userLocation]);
   const myPosts = useMemo(() => posts.filter((post) => post.isOwner), [posts]);
   const outdoorMinutes = useMemo(
     () => myPosts.reduce((total, post) => total + post.durationMinutes, 0),
@@ -336,10 +365,37 @@ export default function HomePage() {
     window.setTimeout(() => setToast(""), 3000);
   }
 
+  function requestUserLocation(options?: { force?: boolean }) {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus("unavailable");
+      setUserLocation(null);
+      return;
+    }
+    if (!options?.force && (locationStatus === "pending" || locationStatus === "ready")) {
+      return;
+    }
+    setLocationStatus("pending");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationStatus("ready");
+      },
+      (error) => {
+        setUserLocation(null);
+        setLocationStatus(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable");
+      },
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 },
+    );
+  }
+
   function openActivityMap() {
     setDiscoverStart("Map");
     setActiveNav("Explore");
-    showToast("Opened the activity map.");
+    requestUserLocation();
+    showToast("Opened Near Me · within about 50 km.");
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const target =
@@ -753,6 +809,9 @@ export default function HomePage() {
             reportPost={reportPost}
             sharePost={sharePost}
             saveJourney={saveJourney}
+            locationStatus={locationStatus}
+            nearMeRadiusKm={nearMeRadiusKm}
+            onRequestLocation={() => requestUserLocation({ force: true })}
           />
         )}
         {activeNav === "Explore" && (
@@ -769,6 +828,10 @@ export default function HomePage() {
               setActiveNav("Messages");
             }}
             showToast={showToast}
+            userLocation={userLocation}
+            locationStatus={locationStatus}
+            onRequestLocation={() => requestUserLocation({ force: true })}
+            nearMeRadiusKm={nearMeRadiusKm}
           />
         )}
         {activeNav === "Messages" && (
@@ -840,7 +903,7 @@ export default function HomePage() {
         <OutdoorTracker minutes={outdoorMinutes} compact />
         <section className="rail-card explore-rail">
           <span><Compass size={22} /></span>
-          <div><strong>Explore nearby</strong><p>Discover routes and outdoor spots through real community journeys.</p></div>
+          <div><strong>Near Me · ~{NEAR_ME_RADIUS_KM} km</strong><p>Only journeys within about 50 km of your location, ranked closest first.</p></div>
           <button onClick={openActivityMap}>Open map</button>
         </section>
         <section className="rail-card">
@@ -1023,10 +1086,13 @@ function Feed({
   reportPost,
   sharePost,
   saveJourney,
+  locationStatus,
+  nearMeRadiusKm,
+  onRequestLocation,
 }: {
   posts: SavedPost[];
-  feedMode: "Community" | "Friends";
-  setFeedMode: (mode: "Community" | "Friends") => void;
+  feedMode: FeedMode;
+  setFeedMode: (mode: FeedMode) => void;
   initial: string;
   profileName: string;
   openComposer: () => void;
@@ -1037,7 +1103,34 @@ function Feed({
   reportPost: (post: SavedPost) => void;
   sharePost: (post: SavedPost) => void;
   saveJourney: (post: SavedPost, action?: "toggle" | "plan") => void;
+  locationStatus: UserLocationStatus;
+  nearMeRadiusKm: number;
+  onRequestLocation: () => void;
 }) {
+  const nearMeBlocked = feedMode === "Near Me" && (locationStatus === "denied" || locationStatus === "unavailable");
+  const nearMePending = feedMode === "Near Me" && locationStatus === "pending";
+  const emptyIcon = feedMode === "Near Me" ? LocateFixed : feedMode === "Community" ? ImagePlus : Users;
+  const emptyTitle = feedMode === "Near Me"
+    ? nearMeBlocked
+      ? "Location needed for Near Me"
+      : nearMePending
+        ? "Finding journeys near you"
+        : "Nothing nearby yet"
+    : feedMode === "Community"
+      ? "Your next adventure starts here"
+      : "Adventures are better together";
+  const emptyCopy = feedMode === "Near Me"
+    ? nearMeBlocked
+      ? "Near Me only shows journeys within about 50 km. Enable location, or browse Community meanwhile."
+      : nearMePending
+        ? "Hang tight while Waymark uses your current position."
+        : `No geotagged journeys within about ${nearMeRadiusKm} km. Share one nearby so neighbours can discover it.`
+    : feedMode === "Community"
+      ? "Waymark is empty by design. Share a real outdoor photo to start the community."
+      : "Add friends or be the first in your group to share an adventure.";
+  const emptyAction = feedMode === "Near Me" && nearMeBlocked ? "Enable location" : feedMode === "Community" ? "Share first journey" : "Share a journey";
+  const emptyActionHandler = feedMode === "Near Me" && nearMeBlocked ? onRequestLocation : openComposer;
+
   return (
     <div className="social-feed">
       <TodayAdventures posts={posts} openComposer={openComposer} />
@@ -1054,19 +1147,43 @@ function Feed({
         </div>
       </section>
       <div className="feed-tabs" role="tablist" aria-label="Feed filters">
-        {(["Community", "Friends"] as const).map((mode) => <button key={mode} role="tab" aria-selected={feedMode === mode} className={feedMode === mode ? "selected" : ""} onClick={() => setFeedMode(mode)}>{mode}</button>)}
+        {(["Near Me", "Community", "Friends"] as const).map((mode) => (
+          <button key={mode} role="tab" aria-selected={feedMode === mode} className={feedMode === mode ? "selected" : ""} onClick={() => setFeedMode(mode)}>{mode}</button>
+        ))}
       </div>
+      {feedMode === "Near Me" && (
+        <div className={`near-me-banner ${nearMeBlocked ? "blocked" : ""}`} role="status">
+          <LocateFixed size={18} />
+          <div>
+            <strong>
+              {nearMePending
+                ? "Locating you"
+                : nearMeBlocked
+                  ? "Location unavailable"
+                  : `Within about ${nearMeRadiusKm} km`}
+            </strong>
+            <p>
+              {nearMePending
+                ? "Near Me ranks geotagged journeys closest to you first."
+                : nearMeBlocked
+                  ? "Enable location to see local adventures. Posts without a map pin never appear here."
+                  : `${posts.length} ${posts.length === 1 ? "journey" : "journeys"} nearby · posts without coordinates stay in Community.`}
+            </p>
+          </div>
+          {nearMeBlocked ? <button type="button" onClick={onRequestLocation}>Try again</button> : null}
+        </div>
+      )}
       <CommunityPulse posts={posts} />
       <AdSlot placement="feed" />
       {posts.length ? posts.map((post) => (
         <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} sharePost={sharePost} saveJourney={saveJourney} />
       )) : (
         <EmptyState
-          icon={feedMode === "Community" ? ImagePlus : Users}
-          title={feedMode === "Community" ? "Your next adventure starts here" : "Adventures are better together"}
-          copy={feedMode === "Community" ? "Waymark is empty by design. Share a real outdoor photo to start the community." : "Add friends or be the first in your group to share an adventure."}
-          action={feedMode === "Community" ? "Share first journey" : "Share a journey"}
-          onAction={openComposer}
+          icon={emptyIcon}
+          title={emptyTitle}
+          copy={emptyCopy}
+          action={emptyAction}
+          onAction={emptyActionHandler}
         />
       )}
     </div>
@@ -1987,22 +2104,6 @@ function timeAgo(value: string) {
 
 function upsertPost(posts: SavedPost[], next: SavedPost) {
   return posts.map((post) => (post.id === next.id ? next : post));
-}
-
-function haversineKm(
-  first: { lat: number; lng: number },
-  second: { lat: number; lng: number },
-) {
-  const toRadians = (value: number) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const latitudeDelta = toRadians(second.lat - first.lat);
-  const longitudeDelta = toRadians(second.lng - first.lng);
-  const a =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(toRadians(first.lat)) *
-      Math.cos(toRadians(second.lat)) *
-      Math.sin(longitudeDelta / 2) ** 2;
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 async function createJourneyRecap(post: SavedPost) {
