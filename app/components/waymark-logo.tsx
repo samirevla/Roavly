@@ -11,24 +11,25 @@ export function WaymarkLogo({ compact = false, className = "" }: WaymarkLogoProp
     >
       <span className="waymark-logo-tile">
         <svg viewBox="0 0 72 72" role="img" aria-hidden="true">
-          {/* Soft twin peaks — geometric mountain silhouette */}
+          {/* Classic trail blaze — diamond marker hikers follow */}
           <path
-            className="waymark-logo-mountain"
-            d="M10 54 L28 26 L36 38 L46 20 L62 54 Z"
+            className="waymark-logo-blaze"
+            d="M36 14 L50 28 L36 42 L22 28 Z"
           />
-          {/* Subtle mid ridge for depth */}
+          {/* Vertical post / stem under the blaze */}
+          <rect
+            className="waymark-logo-post"
+            x="33"
+            y="40"
+            width="6"
+            height="16"
+            rx="3"
+          />
+          {/* Subtle path curve at the base for motion */}
           <path
-            className="waymark-logo-ridge"
-            d="M28 26 L36 38 L46 20"
+            className="waymark-logo-path"
+            d="M18 60 C28 54 44 54 54 60"
           />
-          {/* Trail path climbing toward the pin */}
-          <path
-            className="waymark-logo-trail"
-            d="M22 54 C28 48 32 46 38 44"
-          />
-          {/* Trail / location pin */}
-          <circle className="waymark-logo-pin-ring" cx="42" cy="40" r="6.2" />
-          <circle className="waymark-logo-pin" cx="42" cy="40" r="3.6" />
         </svg>
       </span>
       {!compact && <span className="waymark-wordmark">Waymark</span>}
