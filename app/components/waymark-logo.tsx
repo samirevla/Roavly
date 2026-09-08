@@ -3,10 +3,10 @@ type WaymarkLogoProps = {
   className?: string;
 };
 
-/** Geometric monogram W — three thick trail-path strokes, sharp joints, flat tops. */
-const W_PATH =
-  "M14 18 L24.5 18 L30.2 47 L33.5 18 L38.5 18 L41.8 47 L47.5 18 L58 18 L49 54 L41.2 54 L36 30 L30.8 54 L23 54 Z";
-
+/**
+ * Monogram W mark — exact asset from approved variant A mockup
+ * (geometric white W on forest-green squircle).
+ */
 export function WaymarkLogo({ compact = false, className = "" }: WaymarkLogoProps) {
   return (
     <span
@@ -14,9 +14,15 @@ export function WaymarkLogo({ compact = false, className = "" }: WaymarkLogoProp
       aria-hidden="true"
     >
       <span className="waymark-logo-tile">
-        <svg viewBox="0 0 72 72" role="img" aria-hidden="true">
-          <path className="waymark-logo-w" d={W_PATH} />
-        </svg>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className="waymark-logo-mark"
+          src="/waymark-mark.png"
+          alt=""
+          width={72}
+          height={72}
+          draggable={false}
+        />
       </span>
       {!compact && <span className="waymark-wordmark">Waymark</span>}
     </span>
