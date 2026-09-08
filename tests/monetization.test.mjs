@@ -85,7 +85,7 @@ test("the product UI can exercise every revenue flow without seeded paid content
   const ui = await source("app/components/monetization-view.tsx");
   const discover = await source("app/components/discover-view.tsx");
   const page = await source("app/page.tsx");
-  for (const label of ["Trail tips", "My library", "Create & earn", "Roavly+", "Local partner", "Sponsored challenge", "Native ad campaign"]) {
+  for (const label of ["Trail tips", "My library", "Create & earn", "Waymark+", "Local partner", "Sponsored challenge", "Native ad campaign"]) {
     assert.match(ui, new RegExp(label.replace(/[+]/g, "\\+"), "i"));
   }
   assert.match(discover, /<MonetizationView/);
