@@ -8,6 +8,7 @@ import {
   photoExtension,
   validatePhoto,
 } from "../../photo-upload";
+import { enforceRateLimit, RATE_LIMITS } from "../../rate-limit";
 import { getDb } from "../../../db";
 import {
   comments,
@@ -52,14 +53,13 @@ export async function GET() {
     blockedEmails.delete(viewer.email);
     const rows = rawRows.filter((post) => !blockedEmails.has(post.authorEmail));
     const postIds = rows.map((post) => post.id);
-    const [allReactions, allComments, authorProfiles, allSaves, viewerFriendships, postGearTags] = await Promise.all([
+    const [allReactions, allComments, allSaves, viewerFriendships, postGearTags] = await Promise.all([
       postIds.length
         ? db.select().from(reactions).where(inArray(reactions.postId, postIds))
         : Promise.resolve([]),
       postIds.length
         ? db.select().from(comments).where(inArray(comments.postId, postIds)).orderBy(asc(comments.createdAt))
         : Promise.resolve([]),
-      db.select().from(profiles),
       postIds.length
         ? db.select().from(savedJourneys).where(inArray(savedJourneys.postId, postIds))
         : Promise.resolve([]),
@@ -79,6 +79,15 @@ export async function GET() {
         ? db.select().from(gearTags).where(and(eq(gearTags.targetType, "post"), inArray(gearTags.targetId, postIds)))
         : Promise.resolve([]),
     ]);
+    const profileEmails = Array.from(
+      new Set([
+        ...rows.map((post) => post.authorEmail),
+        ...allComments.map((comment) => comment.authorEmail),
+      ]),
+    );
+    const authorProfiles = profileEmails.length
+      ? await db.select().from(profiles).where(inArray(profiles.email, profileEmails))
+      : [];
 
     const enriched = rows.map((post) => {
       const { authorEmail, ...publicPost } = post;
@@ -163,6 +172,8 @@ export async function POST(request: Request) {
   if (!user) {
     return Response.json({ error: "Sign in to share a journey." }, { status: 401 });
   }
+  const limited = enforceRateLimit(`posts:${user.email}`, RATE_LIMITS.posts);
+  if (limited) return limited;
 
   let imageKey = "";
   try {

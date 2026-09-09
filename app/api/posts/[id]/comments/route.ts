@@ -1,5 +1,6 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { isApprovedEncouragement } from "../../../../positive-comments";
 import { getDb } from "../../../../../db";
 import { comments, posts, profiles } from "../../../../../db/schema";
@@ -12,6 +13,8 @@ export async function POST(
 ) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to comment." }, { status: 401 });
+  const limited = enforceRateLimit(`comments:${user.email}`, RATE_LIMITS.comments);
+  if (limited) return limited;
   const { id: postId } = await context.params;
   const payload = (await request.json()) as { body?: string };
   const body = payload.body?.trim() || "";
@@ -67,10 +70,13 @@ export async function GET(
     .limit(1);
   if (!post) return Response.json({ error: "This post no longer exists." }, { status: 404 });
   const rows = await db.select().from(comments).where(eq(comments.postId, postId)).orderBy(asc(comments.createdAt));
-  const allProfiles = await db.select().from(profiles);
+  const authorEmails = Array.from(new Set(rows.map((comment) => comment.authorEmail)));
+  const authorProfiles = authorEmails.length
+    ? await db.select().from(profiles).where(inArray(profiles.email, authorEmails))
+    : [];
   return Response.json({
     comments: rows.filter((comment) => isApprovedEncouragement(comment.body)).map((comment) => {
-      const author = allProfiles.find((profile) => profile.email === comment.authorEmail);
+      const author = authorProfiles.find((profile) => profile.email === comment.authorEmail);
       return {
         id: comment.id,
         postId: comment.postId,

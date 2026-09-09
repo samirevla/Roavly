@@ -1,5 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
 import {
   chatMessages,
@@ -59,7 +60,7 @@ export async function GET(
     .limit(200);
   const authorEmails = Array.from(new Set(rows.map((message) => message.authorEmail)));
   const authorProfiles = authorEmails.length
-    ? await db.select().from(profiles)
+    ? await db.select().from(profiles).where(inArray(profiles.email, authorEmails))
     : [];
   const now = new Date();
   await db
@@ -88,6 +89,8 @@ export async function POST(
 ) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to send messages." }, { status: 401 });
+  const limited = enforceRateLimit(`messages:${user.email}`, RATE_LIMITS.messages);
+  if (limited) return limited;
 
   const { id } = await params;
   const { db, membership, conversation } = await membershipFor(id, user.email);

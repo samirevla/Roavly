@@ -31,7 +31,7 @@ export async function GET() {
     const conversationIds = viewerMemberships.map((membership) => membership.conversationId);
     if (!conversationIds.length) return Response.json({ conversations: [], unreadTotal: 0 });
 
-    const [conversationRows, memberRows, messageRows, profileRows, blockRows] = await Promise.all([
+    const [conversationRows, memberRows, messageRows, blockRows] = await Promise.all([
       db
         .select()
         .from(conversations)
@@ -47,7 +47,6 @@ export async function GET() {
         .where(inArray(chatMessages.conversationId, conversationIds))
         .orderBy(desc(chatMessages.createdAt))
         .limit(1000),
-      db.select().from(profiles),
       db
         .select()
         .from(blocks)
@@ -58,6 +57,10 @@ export async function GET() {
           ),
         ),
     ]);
+    const memberEmails = Array.from(new Set(memberRows.map((member) => member.userEmail)));
+    const profileRows = memberEmails.length
+      ? await db.select().from(profiles).where(inArray(profiles.email, memberEmails))
+      : [];
     const blockedEmails = new Set(
       blockRows.flatMap((block) => [block.blockerEmail, block.blockedEmail]),
     );
