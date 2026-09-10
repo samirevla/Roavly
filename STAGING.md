@@ -1,13 +1,8 @@
 # Waymark Cloudflare staging
 
-Staging runs on Cloudflare Workers + D1, separate from production OpenAI Sites.
+Staging runs on Cloudflare Workers + D1 + R2, separate from production OpenAI Sites.
 
 **Live URL:** https://roavly-staging.ssemsedinovski.workers.dev
-
-**Limitation — no R2 yet:** R2 payment is not enabled on this Cloudflare account.
-Photo / media uploads are deferred. Missing `BUCKET` returns **503** with a clear JSON
-error (`Photo storage is unavailable…`) instead of crashing. Auth, D1-backed APIs,
-and the UI work without R2.
 
 ## Intended URL
 
@@ -22,9 +17,8 @@ Cloudflare dashboard under Workers → roavly-staging. Account workers.dev subdo
 1. Authenticate with Cloudflare (`wrangler login`; do not commit tokens)
 2. Create D1: `wrangler d1 create roavly-staging-db` — paste `database_id` into
    `wrangler.staging.toml` (already set to `75570cc5-7b80-4ac5-aa21-5c5da7b16337`)
-3. **R2 deferred** — when payment is enabled:
-   `wrangler r2 bucket create roavly-staging-media`, then uncomment `[[r2_buckets]]`
-   in `wrangler.staging.toml` and redeploy
+3. Create R2: `wrangler r2 bucket create roavly-staging-media` — bound as `BUCKET` in
+   `wrangler.staging.toml` (already done)
 4. Ensure Node >= 22.13 (`/workspace/.local/node-v22.13.0-linux-x64/bin` is used
    automatically by `scripts/deploy-staging.sh` when present)
 5. Register a workers.dev subdomain once (Workers & Pages onboarding, or API
@@ -34,7 +28,7 @@ Cloudflare dashboard under Workers → roavly-staging. Account workers.dev subdo
 
 - Staging workers.dev URL (HTTPS): https://roavly-staging.ssemsedinovski.workers.dev
 - Email + password signup/login (no ChatGPT / Sites login)
-- Journey post with photo **not available yet** (R2 deferred — expect 503 on upload)
+- Journey posts with photos (R2 bucket `roavly-staging-media`)
 - Sites chrome headers off
 - Session cookie `roavly_session` for `AUTH_SESSION_DAYS` (30)
 - No production OpenAI Sites credentials
@@ -45,7 +39,7 @@ Use `scripts/deploy-staging.sh` after one-time setup above.
 
 It builds the app (`scripts/build-verified.sh`), applies sorted `drizzle/*.sql` to
 remote D1 (tolerating already-exists), writes `dist/server/wrangler.staging.json`
-from the vinext build output + staging bindings (no R2), and publishes with
+from the vinext build output + staging bindings (D1 + R2), and publishes with
 `wrangler deploy -c dist/server/wrangler.staging.json`.
 
 `[vars]` already set `ROAVLY_ALLOW_SITES_HEADERS=0` and `AUTH_SESSION_DAYS=30`
@@ -60,5 +54,5 @@ Asset binding: `[assets] directory = "./dist/client"` (matches vinext / current
 |---|---|---|
 | Config | vite.config.ts Cloudflare plugin | wrangler.staging.toml → dist/server deploy |
 | D1 | Miniflare under .wrangler/ | roavly-staging-db (remote) |
-| R2 | Local binding | **deferred** (no bucket until payment) |
+| R2 | Local binding | roavly-staging-media (`BUCKET`) |
 | Headers | ROAVLY_ALLOW_SITES_HEADERS from .env.local | [vars] = 0 |

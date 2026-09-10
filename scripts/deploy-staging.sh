@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Staging publish helper for Cloudflare Workers + D1 (R2 deferred).
+# Staging publish helper for Cloudflare Workers + D1 + R2.
 # Separate from OpenAI Sites production. Does not run login itself.
 set -euo pipefail
 
@@ -21,7 +21,7 @@ if ! wrangler whoami >/dev/null 2>&1; then
   echo "Not logged in to Cloudflare. Run wrangler login first." >&2
   echo "Then create resources once:" >&2
   echo "  wrangler d1 create roavly-staging-db" >&2
-  echo "  # R2 deferred: wrangler r2 bucket create roavly-staging-media" >&2
+  echo "  wrangler r2 bucket create roavly-staging-media" >&2
   echo "Paste the D1 database_id into wrangler.staging.toml." >&2
   exit 1
 fi
@@ -48,7 +48,7 @@ for sql in "${migrations_sorted[@]}"; do
     || echo "    (tolerated failure for ${sql} — often already-applied)"
 done
 
-echo "==> Writing dist/server/wrangler.staging.json (vinext no_bundle + staging bindings, no R2)..."
+echo "==> Writing dist/server/wrangler.staging.json (vinext no_bundle + staging bindings)..."
 node --input-type=module <<'NODE'
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -66,7 +66,12 @@ built.d1_databases = [
     database_id: "75570cc5-7b80-4ac5-aa21-5c5da7b16337",
   },
 ];
-built.r2_buckets = [];
+built.r2_buckets = [
+  {
+    binding: "BUCKET",
+    bucket_name: "roavly-staging-media",
+  },
+];
 built.vars = {
   ROAVLY_ALLOW_SITES_HEADERS: "0",
   AUTH_SESSION_DAYS: "30",
@@ -86,6 +91,6 @@ echo "==> Vars already in wrangler.staging.toml [vars]:"
 echo "    ROAVLY_ALLOW_SITES_HEADERS=0"
 echo "    AUTH_SESSION_DAYS=30"
 echo
-echo "R2 is deferred — photo uploads return 503 until [[r2_buckets]] is restored."
+echo "R2 bucket: roavly-staging-media (BUCKET)"
 echo "Staging URL: https://roavly-staging.ssemsedinovski.workers.dev"
 echo "Done."
