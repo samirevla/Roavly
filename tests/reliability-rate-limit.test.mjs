@@ -143,3 +143,16 @@ test("action-hub also scopes plans/clubs instead of loading every row", async ()
   assert.match(actionHub, /inArray\(adventurePlans\.id/);
   assert.match(actionHub, /inArray\(profiles\.email, profileEmailList\)/);
 });
+
+test("friends route no longer bare full-table profiles select", async () => {
+  const friends = await source("app/api/friends/route.ts");
+  const bare = /db\.select\(\)\s*\.from\(\s*profiles\s*\)(?!\s*\.where\s*\()/g;
+  assert.equal((friends.match(bare) || []).length, 0, "friends GET must not bare-select all profiles");
+  assert.match(
+    friends,
+    /from\(\s*profiles\s*\)\s*\.where\(\s*notInArray\(profiles\.email/,
+    "friends discovery should exclude self/blocked via notInArray",
+  );
+  assert.match(friends, /eq\(friendships\.userOneEmail, user\.email\)/);
+  assert.match(friends, /eq\(blocks\.blockerEmail, user\.email\)/);
+});
