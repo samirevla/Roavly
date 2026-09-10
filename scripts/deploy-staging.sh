@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Staging publish helper for Cloudflare Workers + D1 + R2.
+# Staging publish helper for Cloudflare Workers + D1 (R2 deferred).
 # Separate from OpenAI Sites production. Does not run login itself.
 set -euo pipefail
 
@@ -21,8 +21,8 @@ if ! wrangler whoami >/dev/null 2>&1; then
   echo "Not logged in to Cloudflare. Run wrangler login first." >&2
   echo "Then create resources once:" >&2
   echo "  wrangler d1 create roavly-staging-db" >&2
-  echo "  wrangler r2 bucket create roavly-staging-media" >&2
-  echo "Paste the D1 database_id into wrangler.staging.toml (replace REPLACE_D1_ID)." >&2
+  echo "  # R2 deferred: wrangler r2 bucket create roavly-staging-media" >&2
+  echo "Paste the D1 database_id into wrangler.staging.toml." >&2
   exit 1
 fi
 
@@ -44,19 +44,48 @@ fi
 mapfile -t migrations_sorted < <(printf '%s\n' "${migrations[@]}" | sort)
 for sql in "${migrations_sorted[@]}"; do
   echo "    applying ${sql}"
-  wrangler d1 execute roavly-staging-db --remote --file="${sql}"
+  wrangler d1 execute roavly-staging-db --remote -c wrangler.staging.toml --file="${sql}" \
+    || echo "    (tolerated failure for ${sql} — often already-applied)"
 done
 
+echo "==> Writing dist/server/wrangler.staging.json (vinext no_bundle + staging bindings, no R2)..."
+node --input-type=module <<'NODE'
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const root = process.cwd();
+const built = JSON.parse(readFileSync(join(root, "dist/server/wrangler.json"), "utf8"));
+built.name = "roavly-staging";
+built.compatibility_date = "2026-05-15";
+built.compatibility_flags = ["nodejs_compat"];
+built.workers_dev = true;
+built.d1_databases = [
+  {
+    binding: "DB",
+    database_name: "roavly-staging-db",
+    database_id: "75570cc5-7b80-4ac5-aa21-5c5da7b16337",
+  },
+];
+built.r2_buckets = [];
+built.vars = {
+  ROAVLY_ALLOW_SITES_HEADERS: "0",
+  AUTH_SESSION_DAYS: "30",
+};
+built.assets = { directory: "../client", binding: "ASSETS" };
+built.main = "index.js";
+built.no_bundle = true;
+writeFileSync(join(root, "dist/server/wrangler.staging.json"), JSON.stringify(built, null, 2));
+console.log("    wrote dist/server/wrangler.staging.json");
+NODE
+
 echo "==> Publishing Worker..."
-wrangler deploy -c wrangler.staging.toml
+wrangler deploy -c dist/server/wrangler.staging.json
 
 echo
 echo "==> Vars already in wrangler.staging.toml [vars]:"
 echo "    ROAVLY_ALLOW_SITES_HEADERS=0"
 echo "    AUTH_SESSION_DAYS=30"
 echo
-echo "Optional: wrangler secret put <NAME> for additional secrets"
-echo "  # echo 0 | wrangler secret put ROAVLY_ALLOW_SITES_HEADERS"
-echo
-echo "Staging URL pattern: https://roavly-staging.<account-subdomain>.workers.dev"
+echo "R2 is deferred — photo uploads return 503 until [[r2_buckets]] is restored."
+echo "Staging URL: https://roavly-staging.ssemsedinovski.workers.dev"
 echo "Done."

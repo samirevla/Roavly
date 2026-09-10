@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
-import { getMediaBucket } from "../../media-storage";
+import { getMediaBucket, mediaUnavailableResponse } from "../../media-storage";
 import { isApprovedEncouragement } from "../../positive-comments";
 import {
   friendlyUploadError,
@@ -163,6 +163,8 @@ export async function GET() {
     });
     return Response.json({ posts: enriched });
   } catch (error) {
+    const unavailable = mediaUnavailableResponse(error);
+    if (unavailable) return unavailable;
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
@@ -352,6 +354,8 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
+    const unavailable = mediaUnavailableResponse(error);
+    if (unavailable) return unavailable;
     if (imageKey) {
       try {
         const bucket = await getMediaBucket();

@@ -1,18 +1,24 @@
 name = "roavly-staging"
-main = "./worker/index.ts"
-compatibility_date = "2025-08-01"
+# Source-of-truth staging bindings. After `bash scripts/build-verified.sh`, deploy via
+# scripts/deploy-staging.sh which publishes the vinext-built Worker from dist/server
+# (worker/index.ts cannot resolve vinext virtual modules under plain `wrangler deploy`).
+main = "./dist/server/index.js"
+compatibility_date = "2026-05-15"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
 # Staging Workers deploy — separate from production OpenAI Sites hosting.
-# Placeholder IDs — will be replaced after `wrangler d1 create` / `r2 bucket create`
+# D1 only for this interim deploy (R2 deferred until payment is enabled).
 [[d1_databases]]
 binding = "DB"
 database_name = "roavly-staging-db"
-database_id = "REPLACE_D1_ID"
+database_id = "75570cc5-7b80-4ac5-aa21-5c5da7b16337"
 
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "roavly-staging-media"
+# R2 deferred — Sami has not enabled R2 payment yet. Photo uploads return 503
+# until [[r2_buckets]] is restored and the bucket is created.
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "roavly-staging-media"
 
 [assets]
 binding = "ASSETS"

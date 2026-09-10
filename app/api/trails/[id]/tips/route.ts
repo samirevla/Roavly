@@ -10,7 +10,7 @@ import {
   trails,
 } from "../../../../../db/schema";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
-import { getMediaBucket } from "../../../../media-storage";
+import { getMediaBucket, mediaUnavailableResponse } from "../../../../media-storage";
 import { emitAnalytics, getMonetizationConfig, scanTrailTipRisk } from "../../../../monetization";
 
 export const dynamic = "force-dynamic";
@@ -128,7 +128,14 @@ export async function POST(
   const tipId = crypto.randomUUID();
   const mediaKey = `tips/${tipId}/full.${extension(media.type)}`;
   const previewKey = `tips/${tipId}/preview.${extension(previewFile.type)}`;
-  const bucket = await getMediaBucket();
+  let bucket;
+  try {
+    bucket = await getMediaBucket();
+  } catch (error) {
+    const unavailable = mediaUnavailableResponse(error);
+    if (unavailable) return unavailable;
+    throw error;
+  }
   await bucket.put(mediaKey, await media.arrayBuffer(), { httpMetadata: { contentType: media.type }, customMetadata: { owner: user.email, tipId, access: "paid" } });
   await bucket.put(previewKey, await previewFile.arrayBuffer(), { httpMetadata: { contentType: previewFile.type }, customMetadata: { owner: user.email, tipId, access: "preview" } });
   const riskFlags = scanTrailTipRisk(`${title} ${description}`);
