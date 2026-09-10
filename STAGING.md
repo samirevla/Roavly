@@ -45,6 +45,10 @@ from the vinext build output + staging bindings (D1 + R2), and publishes with
 `[vars]` already set `ROAVLY_ALLOW_SITES_HEADERS=0` and `AUTH_SESSION_DAYS=30`
 (optional secrets via `wrangler secret put`).
 
+Required for tip media uploads: `UPLOAD_SIGNING_SECRET` (HMAC for same-origin
+streaming PUT URLs). Tip create is metadata-only after `/api/uploads/sign` +
+`PUT /api/uploads/put`; the Worker never buffers tip files with `arrayBuffer`.
+
 Asset binding: `[assets] directory = "./dist/client"` (matches vinext / current
 `dist/client` output).
 

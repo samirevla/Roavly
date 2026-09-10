@@ -1,16 +1,27 @@
 type StoredMedia = {
   body: ReadableStream;
   httpMetadata?: { contentType?: string };
+  customMetadata?: Record<string, string>;
   writeHttpMetadata(headers: Headers): void;
+};
+
+type MediaObjectMeta = {
+  httpMetadata?: { contentType?: string };
+  customMetadata?: Record<string, string>;
+  size?: number;
 };
 
 type MediaBucket = {
   put(
     key: string,
-    value: ArrayBuffer,
-    options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> },
+    value: ArrayBuffer | ReadableStream | null,
+    options?: {
+      httpMetadata?: { contentType?: string };
+      customMetadata?: Record<string, string>;
+    },
   ): Promise<unknown>;
   get(key: string): Promise<StoredMedia | null>;
+  head?(key: string): Promise<MediaObjectMeta | null>;
   delete(key: string): Promise<void>;
 };
 
@@ -51,4 +62,27 @@ export async function getMediaBucket(): Promise<MediaBucket> {
     throw new MediaStorageUnavailableError();
   }
   return bucket;
+}
+
+/** Confirm an object exists without buffering its body (prefer head; fall back to get + cancel). */
+export async function assertMediaObjectExists(
+  bucket: MediaBucket,
+  key: string,
+): Promise<MediaObjectMeta> {
+  if (typeof bucket.head === "function") {
+    const meta = await bucket.head(key);
+    if (!meta) throw new Error(`Missing media object: ${key}`);
+    return meta;
+  }
+  const object = await bucket.get(key);
+  if (!object) throw new Error(`Missing media object: ${key}`);
+  try {
+    await object.body.cancel();
+  } catch {
+    // Best-effort cancel when head is unavailable.
+  }
+  return {
+    httpMetadata: object.httpMetadata,
+    customMetadata: object.customMetadata,
+  };
 }

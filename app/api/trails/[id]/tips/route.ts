@@ -10,28 +10,39 @@ import {
   trails,
 } from "../../../../../db/schema";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
-import { getMediaBucket, mediaUnavailableResponse } from "../../../../media-storage";
+import {
+  assertMediaObjectExists,
+  getMediaBucket,
+  mediaUnavailableResponse,
+} from "../../../../media-storage";
 import { emitAnalytics, getMonetizationConfig, scanTrailTipRisk } from "../../../../monetization";
 
 export const dynamic = "force-dynamic";
 
-function safeMediaType(file: File) {
-  if (["video/mp4", "video/quicktime", "video/webm"].includes(file.type)) return "video";
-  if (["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type)) return "photo";
+const ALLOWED_CONTENT_TYPES = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function mediaKind(contentType: string): "video" | "photo" | null {
+  if (["video/mp4", "video/quicktime", "video/webm"].includes(contentType)) return "video";
+  if (["image/jpeg", "image/png", "image/webp"].includes(contentType)) return "photo";
   return null;
 }
 
-function extension(contentType: string) {
-  return ({
-    "video/mp4": "mp4",
-    "video/quicktime": "mov",
-    "video/webm": "webm",
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/heic": "heic",
-    "image/heif": "heif",
-  } as Record<string, string>)[contentType] || "bin";
+function normalizeContentType(value: string): string {
+  return value.toLowerCase().split(";")[0].trim();
+}
+
+function isTipKey(tipId: string, key: string, kind: "full" | "preview"): boolean {
+  return new RegExp(`^tips/${tipId}/${kind}\\.[a-z0-9]+$`, "i").test(key);
 }
 
 export async function GET(
@@ -108,26 +119,74 @@ export async function POST(
   );
   if (!completedThisTrail) return Response.json({ error: "Complete and post this trail before briefing it." }, { status: 403 });
 
-  const form = await request.formData();
-  const title = String(form.get("title") || "").trim().slice(0, 90);
-  const description = String(form.get("description") || "").trim().slice(0, 800);
-  const durationSeconds = Math.round(Number(form.get("durationSeconds")) || 0);
-  const config = await getMonetizationConfig();
-  const priceCents = Math.max(0, Math.min(config.tipMaxPriceCents, Math.round(Number(form.get("priceCents")) || config.tipDefaultPriceCents)));
-  const media = form.get("media");
-  const preview = form.get("preview");
-  if (!title || description.length < 20) return Response.json({ error: "Add a clear title and at least 20 characters of useful detail." }, { status: 400 });
-  if (durationSeconds < 120 || durationSeconds > 300) return Response.json({ error: "Trail briefings must be between 2 and 5 minutes." }, { status: 400 });
-  if (!(media instanceof File)) return Response.json({ error: "Choose a briefing video or photo narration." }, { status: 400 });
-  const mediaType = safeMediaType(media);
-  if (!mediaType || media.size > 100 * 1024 * 1024) return Response.json({ error: "Use an MP4, MOV, WebM or photo under 100 MB." }, { status: 400 });
-  if (mediaType === "video" && !(preview instanceof File)) return Response.json({ error: "Add a 15-second preview clip or still image." }, { status: 400 });
-  const previewFile = preview instanceof File ? preview : media;
-  if (!safeMediaType(previewFile) || previewFile.size > 15 * 1024 * 1024) return Response.json({ error: "Preview files must be a supported video or image under 15 MB." }, { status: 400 });
+  const contentTypeHeader = (request.headers.get("content-type") || "").toLowerCase();
+  if (!contentTypeHeader.includes("application/json")) {
+    return Response.json(
+      {
+        error:
+          "Upload media first via /api/uploads/sign + PUT, then POST JSON metadata to create the briefing.",
+      },
+      { status: 415 },
+    );
+  }
 
-  const tipId = crypto.randomUUID();
-  const mediaKey = `tips/${tipId}/full.${extension(media.type)}`;
-  const previewKey = `tips/${tipId}/preview.${extension(previewFile.type)}`;
+  const body = (await request.json().catch(() => null)) as {
+    tipId?: string;
+    title?: string;
+    description?: string;
+    durationSeconds?: number;
+    priceCents?: number;
+    mediaKey?: string;
+    previewKey?: string;
+    mediaContentType?: string;
+    previewContentType?: string;
+  } | null;
+  if (!body) return Response.json({ error: "Expected JSON body." }, { status: 400 });
+
+  const tipId = String(body.tipId || "").trim();
+  if (!UUID_RE.test(tipId)) {
+    return Response.json({ error: "tipId must be a UUID." }, { status: 400 });
+  }
+
+  const title = String(body.title || "").trim().slice(0, 90);
+  const description = String(body.description || "").trim().slice(0, 800);
+  const durationSeconds = Math.round(Number(body.durationSeconds) || 0);
+  const config = await getMonetizationConfig();
+  const priceCents = Math.max(
+    0,
+    Math.min(config.tipMaxPriceCents, Math.round(Number(body.priceCents) || config.tipDefaultPriceCents)),
+  );
+  const mediaKey = String(body.mediaKey || "").trim();
+  const previewKey = String(body.previewKey || "").trim();
+  const mediaContentType = normalizeContentType(String(body.mediaContentType || ""));
+  const previewContentType = normalizeContentType(String(body.previewContentType || ""));
+
+  if (!title || description.length < 20) {
+    return Response.json({ error: "Add a clear title and at least 20 characters of useful detail." }, { status: 400 });
+  }
+  if (durationSeconds < 120 || durationSeconds > 300) {
+    return Response.json({ error: "Trail briefings must be between 2 and 5 minutes." }, { status: 400 });
+  }
+  if (
+    mediaContentType.includes("heic") ||
+    mediaContentType.includes("heif") ||
+    previewContentType.includes("heic") ||
+    previewContentType.includes("heif")
+  ) {
+    return Response.json(
+      { error: "Convert HEIC/HEIF photos to JPEG on the device before submitting." },
+      { status: 400 },
+    );
+  }
+  if (!ALLOWED_CONTENT_TYPES.has(mediaContentType) || !ALLOWED_CONTENT_TYPES.has(previewContentType)) {
+    return Response.json({ error: "Use an MP4, MOV, WebM or photo under 100 MB." }, { status: 400 });
+  }
+  const mediaType = mediaKind(mediaContentType);
+  if (!mediaType) return Response.json({ error: "Unsupported media type." }, { status: 400 });
+  if (!isTipKey(tipId, mediaKey, "full") || !isTipKey(tipId, previewKey, "preview")) {
+    return Response.json({ error: "mediaKey and previewKey must match tips/{tipId}/…." }, { status: 400 });
+  }
+
   let bucket;
   try {
     bucket = await getMediaBucket();
@@ -136,8 +195,34 @@ export async function POST(
     if (unavailable) return unavailable;
     throw error;
   }
-  await bucket.put(mediaKey, await media.arrayBuffer(), { httpMetadata: { contentType: media.type }, customMetadata: { owner: user.email, tipId, access: "paid" } });
-  await bucket.put(previewKey, await previewFile.arrayBuffer(), { httpMetadata: { contentType: previewFile.type }, customMetadata: { owner: user.email, tipId, access: "preview" } });
+
+  let mediaMeta;
+  let previewMeta;
+  try {
+    [mediaMeta, previewMeta] = await Promise.all([
+      assertMediaObjectExists(bucket, mediaKey),
+      assertMediaObjectExists(bucket, previewKey),
+    ]);
+  } catch {
+    return Response.json(
+      { error: "Upload the full media and preview objects before creating the briefing." },
+      { status: 400 },
+    );
+  }
+
+  if (mediaMeta.customMetadata?.owner && mediaMeta.customMetadata.owner !== user.email) {
+    return Response.json({ error: "Media object owner mismatch." }, { status: 403 });
+  }
+  if (previewMeta.customMetadata?.owner && previewMeta.customMetadata.owner !== user.email) {
+    return Response.json({ error: "Preview object owner mismatch." }, { status: 403 });
+  }
+  if (mediaMeta.customMetadata?.tipId && mediaMeta.customMetadata.tipId !== tipId) {
+    return Response.json({ error: "Media object tipId mismatch." }, { status: 400 });
+  }
+  if (previewMeta.customMetadata?.tipId && previewMeta.customMetadata.tipId !== tipId) {
+    return Response.json({ error: "Preview object tipId mismatch." }, { status: 400 });
+  }
+
   const riskFlags = scanTrailTipRisk(`${title} ${description}`);
   const now = new Date();
   const [tip] = await db.insert(trailTips).values({
@@ -148,7 +233,7 @@ export async function POST(
     description,
     mediaKey,
     previewKey,
-    thumbnailKey: previewFile.type.startsWith("image/") ? previewKey : "",
+    thumbnailKey: previewContentType.startsWith("image/") ? previewKey : "",
     mediaType,
     durationSeconds,
     priceCents,
@@ -159,6 +244,15 @@ export async function POST(
     createdAt: now,
     updatedAt: now,
   }).returning();
-  await emitAnalytics({ eventName: "trail_tip_submitted", userEmail: user.email, entityType: "trail_tip", entityId: tip.id, properties: { trailId, priceCents, riskFlags } });
-  return Response.json({ tip, message: riskFlags.length ? "Submitted for mandatory safety review." : "Submitted for review." }, { status: 201 });
+  await emitAnalytics({
+    eventName: "trail_tip_submitted",
+    userEmail: user.email,
+    entityType: "trail_tip",
+    entityId: tip.id,
+    properties: { trailId, priceCents, riskFlags },
+  });
+  return Response.json(
+    { tip, message: riskFlags.length ? "Submitted for mandatory safety review." : "Submitted for review." },
+    { status: 201 },
+  );
 }

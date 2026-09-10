@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { JourneyMapPost } from "./explore-map";
+import { preparePhotoForUpload } from "../client-photo";
 
 type Tip = {
   id: string;
@@ -213,12 +214,106 @@ function CreatorStudio({ trails, ownPosts, selectedTrailId, setSelectedTrailId, 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!selectedTrailId || submitting) return;
     setSubmitting(true);
-    const form = new FormData(event.currentTarget);
-    const response = await fetch(`/api/trails/${selectedTrailId}/tips`, { method: "POST", body: form });
-    const payload = await response.json() as { error?: string; message?: string };
-    setSubmitting(false);
-    if (!response.ok) return showToast(payload.error || "Briefing could not be submitted.");
-    showToast(payload.message || "Briefing submitted for review."); event.currentTarget.reset(); await refresh();
+    const formElement = event.currentTarget;
+    try {
+      const form = new FormData(formElement);
+      const title = String(form.get("title") || "").trim();
+      const description = String(form.get("description") || "").trim();
+      const durationSeconds = Math.round(Number(form.get("durationSeconds")) || 0);
+      const priceCents = Math.round(Number(form.get("priceCents")) || 0);
+      const mediaInput = form.get("media");
+      const previewInput = form.get("preview");
+      if (!(mediaInput instanceof File) || !mediaInput.size) {
+        showToast("Choose a briefing video or photo narration.");
+        return;
+      }
+
+      async function prepareTipFile(file: File, role: "media" | "preview"): Promise<File> {
+        const type = (file.type || "").toLowerCase();
+        const isVideo = type.startsWith("video/");
+        const looksImage = type.startsWith("image/") || /\.(heic|heif|jpe?g|png|webp)$/i.test(file.name);
+        if (isVideo) return file;
+        if (!looksImage && role === "media") return file;
+        if (!looksImage) return file;
+        const prepared = await preparePhotoForUpload(file);
+        return prepared.file;
+      }
+
+      const mediaFile = await prepareTipFile(mediaInput, "media");
+      const mediaIsVideo = (mediaFile.type || "").startsWith("video/");
+      let previewFile: File;
+      if (previewInput instanceof File && previewInput.size) {
+        previewFile = await prepareTipFile(previewInput, "preview");
+      } else if (mediaIsVideo) {
+        showToast("Add a 15-second preview clip or still image.");
+        return;
+      } else {
+        previewFile = mediaFile;
+      }
+
+      const tipId = crypto.randomUUID();
+
+      async function signAndPut(purpose: "tip_media" | "tip_preview", file: File) {
+        const signResponse = await fetch("/api/uploads/sign", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            purpose,
+            contentType: file.type || "application/octet-stream",
+            byteSize: file.size,
+            tipId,
+          }),
+        });
+        const signed = await signResponse.json() as {
+          error?: string;
+          key?: string;
+          uploadUrl?: string;
+          contentType?: string;
+        };
+        if (!signResponse.ok || !signed.uploadUrl || !signed.key || !signed.contentType) {
+          throw new Error(signed.error || "Could not start the upload.");
+        }
+        const putResponse = await fetch(signed.uploadUrl, {
+          method: "PUT",
+          headers: { "content-type": signed.contentType },
+          body: file,
+        });
+        const putPayload = await putResponse.json().catch(() => ({})) as { error?: string; key?: string };
+        if (!putResponse.ok) throw new Error(putPayload.error || "Media upload failed.");
+        return { key: signed.key, contentType: signed.contentType };
+      }
+
+      const mediaUpload = await signAndPut("tip_media", mediaFile);
+      const previewUpload = await signAndPut("tip_preview", previewFile);
+
+      const response = await fetch(`/api/trails/${selectedTrailId}/tips`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tipId,
+          title,
+          description,
+          durationSeconds,
+          priceCents,
+          mediaKey: mediaUpload.key,
+          previewKey: previewUpload.key,
+          mediaContentType: mediaUpload.contentType,
+          previewContentType: previewUpload.contentType,
+        }),
+      });
+      const payload = await response.json() as { error?: string; message?: string };
+      if (!response.ok) {
+        showToast(payload.error || "Briefing could not be submitted.");
+        return;
+      }
+      showToast(payload.message || "Briefing submitted for review.");
+      formElement.reset();
+      await refresh();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Briefing could not be submitted.");
+    } finally {
+      setSubmitting(false);
+    }
   }
   return <div className="creator-studio"><section className="seller-gate"><span><ShieldCheck size={22} /></span><div><small>VERIFIED SELLER</small><h3>{eligibility?.isVerifiedSeller ? "Your creator access is active" : "Trust comes before selling"}</h3><p>Creators must post a map-verified completion and reach the configured friend or community-motivation threshold. Every briefing is reviewed.</p></div><i>{eligibility?.isVerifiedSeller ? "Verified" : "Not yet eligible"}</i></section>
     <div className="creator-grid"><section><h3>1. Choose a completed trail</h3><select value={selectedTrailId} onChange={(event) => setSelectedTrailId(event.target.value)}><option value="">Select trail</option>{trails.map((trail) => <option value={trail.id} key={trail.id}>{trail.name}</option>)}</select>{ownPosts.length ? <details><summary><Plus size={15} /> Add a trail from one of my journeys</summary>{ownPosts.slice(0, 10).map((post) => <button key={post.id} onClick={() => createTrail(post.id)}><MapPin size={14} /><span>{post.location}<small>{post.caption}</small></span></button>)}</details> : <p>Share a map-verified journey first.</p>}</section><section><h3>Creator earnings</h3><strong className="creator-balance">{formatMoney(overview.creator?.balance?.pendingCents || 0, overview.pricing.currency)}</strong><small>Available balance · 70% default creator share</small><button onClick={async () => { const response = await fetch("/api/creator-payouts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "onboard" }) }); const payload = await response.json() as { onboardingUrl?: string; error?: string }; if (payload.onboardingUrl) window.location.href = payload.onboardingUrl; else showToast(payload.error || "Payout setup could not start."); }}>Set up Stripe payouts</button></section></div>
