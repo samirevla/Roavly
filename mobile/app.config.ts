@@ -46,7 +46,7 @@ const config: ExpoConfig = {
   extra: {
     apiBaseUrl:
       process.env.EXPO_PUBLIC_ROAVLY_API_URL ||
-      "https://roavly-app.ssemsedinovski.chatgpt.site",
+      "https://roavly-staging.ssemsedinovski.workers.dev",
   },
 };
 
