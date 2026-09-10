@@ -109,9 +109,10 @@ test("choosing a Google location preserves the completed journey form", async ()
   assert.match(page, /\.\.\.current/);
   assert.match(picker, /const onSelectRef = useRef\(onSelect\)/);
   assert.match(picker, /onSelectRef\.current\(\{/);
-  assert.match(picker, /autocomplete\.style\.colorScheme = "light"/);
-  assert.match(styles, /gmp-place-autocomplete/);
-  assert.match(styles, /color-scheme: light !important/);
+  assert.match(picker, /AutocompleteSuggestion\.fetchAutocompleteSuggestions/);
+  assert.match(picker, /location-suggestions/);
+  assert.match(styles, /\.location-suggestions/);
+  assert.match(styles, /In-page location suggestions/);
 });
 
 test("social routes enforce sign-in before exposing feed, friends, maps or media", async () => {
@@ -386,8 +387,8 @@ test("journeys store validated Google places for the accessible activity map", a
   assert.match(postsApi, /latitude < -90 \|\| latitude > 90/);
   assert.match(postsApi, /longitude < -180 \|\| longitude > 180/);
   assert.match(postsApi, /Choose a location from Google Maps/);
-  assert.match(picker, /PlaceAutocompleteElement/);
-  assert.match(picker, /placePrediction\.toPlace/);
+  assert.match(picker, /AutocompleteSuggestion/);
+  assert.match(picker, /prediction\.toPlace\(/);
   assert.match(map, /AdvancedMarkerElement/);
   assert.match(map, /gmpClickable: true/);
   assert.match(map, /title:/);
