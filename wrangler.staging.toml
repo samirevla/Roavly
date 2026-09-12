@@ -1,0 +1,26 @@
+name = "roavly-staging"
+# Source-of-truth staging bindings. After `bash scripts/build-verified.sh`, deploy via
+# scripts/deploy-staging.sh which publishes the vinext-built Worker from dist/server
+# (worker/index.ts cannot resolve vinext virtual modules under plain `wrangler deploy`).
+main = "./dist/server/index.js"
+compatibility_date = "2026-05-15"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Staging Workers deploy — separate from production OpenAI Sites hosting.
+[[d1_databases]]
+binding = "DB"
+database_name = "roavly-staging-db"
+database_id = "75570cc5-7b80-4ac5-aa21-5c5da7b16337"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "roavly-staging-media"
+
+[assets]
+binding = "ASSETS"
+directory = "./dist/client"
+
+[vars]
+ROAVLY_ALLOW_SITES_HEADERS = "0"
+AUTH_SESSION_DAYS = "30"

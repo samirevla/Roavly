@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     return Response.redirect(
       new URL(
-        `/signin-with-chatgpt?return_to=${encodeURIComponent("/api/mobile/auth/complete")}`,
+        `/login?return_to=${encodeURIComponent("/api/mobile/auth/complete")}`,
         url.origin,
       ),
       302,

@@ -1,6 +1,7 @@
 import { getDb } from "../../../../../db";
 import { tipReports } from "../../../../../db/schema";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { emitAnalytics } from "../../../../monetization";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to report unsafe information." }, { status: 401 });
+  const limited = enforceRateLimit(`report:${user.email}`, RATE_LIMITS.report);
+  if (limited) return limited;
   const { id } = await context.params;
   const payload = (await request.json()) as { reason?: string };
   const reason = String(payload.reason || "").trim().slice(0, 800);

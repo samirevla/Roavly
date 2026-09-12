@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
 import {
@@ -51,29 +51,78 @@ export async function GET() {
   if (!user) return Response.json({ error: "Sign in to open your adventure hub." }, { status: 401 });
 
   const db = await getDb();
-  const [
-    allProfiles,
-    userSaves,
-    allPlans,
-    allPlanMembers,
-    allClubs,
-    allClubMembers,
-    ownPosts,
-    safetyRows,
-    journeyChats,
-  ] = await Promise.all([
-    db.select().from(profiles),
-    db.select().from(savedJourneys).where(eq(savedJourneys.userEmail, user.email)).orderBy(desc(savedJourneys.createdAt)),
+  const [userSaves, viewerPlanMemberships, viewerClubMemberships, ownPosts, safetyRows] =
+    await Promise.all([
+      db
+        .select()
+        .from(savedJourneys)
+        .where(eq(savedJourneys.userEmail, user.email))
+        .orderBy(desc(savedJourneys.createdAt)),
+      db
+        .select()
+        .from(planMembers)
+        .where(
+          and(
+            eq(planMembers.userEmail, user.email),
+            inArray(planMembers.status, ["requested", "invited", "accepted"]),
+          ),
+        ),
+      db
+        .select()
+        .from(clubMembers)
+        .where(and(eq(clubMembers.userEmail, user.email), eq(clubMembers.status, "active"))),
+      db.select().from(posts).where(eq(posts.authorEmail, user.email)).orderBy(desc(posts.createdAt)),
+      db.select().from(safetyProfiles).where(eq(safetyProfiles.userEmail, user.email)).limit(1),
+    ]);
+
+  const viewerPlanIds = new Set(viewerPlanMemberships.map((member) => member.planId));
+  const viewerClubIds = viewerClubMemberships.map((member) => member.clubId);
+
+  const [allPlans, allClubs] = await Promise.all([
     db
       .select()
       .from(adventurePlans)
+      .where(
+        or(
+          eq(adventurePlans.visibility, "public"),
+          eq(adventurePlans.hostEmail, user.email),
+          ...(viewerPlanIds.size ? [inArray(adventurePlans.id, Array.from(viewerPlanIds))] : []),
+        ),
+      )
       .orderBy(asc(adventurePlans.startsAt)),
-    db.select().from(planMembers),
-    db.select().from(clubs).orderBy(desc(clubs.createdAt)),
-    db.select().from(clubMembers),
-    db.select().from(posts).where(eq(posts.authorEmail, user.email)).orderBy(desc(posts.createdAt)),
-    db.select().from(safetyProfiles).where(eq(safetyProfiles.userEmail, user.email)).limit(1),
-    db.select().from(conversations).where(eq(conversations.purpose, "journey")),
+    db
+      .select()
+      .from(clubs)
+      .where(
+        or(
+          eq(clubs.visibility, "public"),
+          eq(clubs.ownerEmail, user.email),
+          ...(viewerClubIds.length ? [inArray(clubs.id, viewerClubIds)] : []),
+        ),
+      )
+      .orderBy(desc(clubs.createdAt)),
+  ]);
+
+  const planIds = allPlans.map((plan) => plan.id);
+  const clubIds = allClubs.map((club) => club.id);
+  const [allPlanMembers, allClubMembers, journeyChats] = await Promise.all([
+    planIds.length
+      ? db.select().from(planMembers).where(inArray(planMembers.planId, planIds))
+      : Promise.resolve([]),
+    clubIds.length
+      ? db.select().from(clubMembers).where(inArray(clubMembers.clubId, clubIds))
+      : Promise.resolve([]),
+    planIds.length
+      ? db
+          .select()
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.purpose, "journey"),
+              inArray(conversations.adventurePlanId, planIds),
+            ),
+          )
+      : Promise.resolve([]),
   ]);
 
   const now = new Date();
@@ -100,6 +149,21 @@ export async function GET() {
     ? await db.select().from(posts).where(inArray(posts.id, savedPostIds))
     : [];
 
+  const hostPlanIds = new Set(
+    normalisedPlans.filter((plan) => plan.hostEmail === user.email).map((plan) => plan.id),
+  );
+  const neededEmails = new Set<string>();
+  for (const post of savedPosts) neededEmails.add(post.authorEmail);
+  for (const plan of normalisedPlans) neededEmails.add(plan.hostEmail);
+  for (const member of allPlanMembers) {
+    if (hostPlanIds.has(member.planId)) neededEmails.add(member.userEmail);
+  }
+  for (const club of allClubs) neededEmails.add(club.ownerEmail);
+  const profileEmailList = Array.from(neededEmails);
+  const allProfiles = profileEmailList.length
+    ? await db.select().from(profiles).where(inArray(profiles.email, profileEmailList))
+    : [];
+
   const publicProfiles = new Map(
     allProfiles.map((profile) => [
       profile.email,
@@ -122,34 +186,18 @@ export async function GET() {
       durationMinutes: post.durationMinutes,
       imageUrl: `/api/media/${post.imageKey}`,
       authorName: author?.displayName || post.authorName,
-      authorUsername: author?.username || "roavly.member",
+      authorUsername: author?.username || "waymark.member",
     }];
   });
 
-  const viewerPlanIds = new Set(
-    allPlanMembers
-      .filter(
-        (member) =>
-          member.userEmail === user.email &&
-          ["requested", "invited", "accepted"].includes(member.status),
-      )
-      .map((member) => member.planId),
-  );
-  const plans = normalisedPlans
-    .filter(
-      (plan) =>
-        plan.visibility === "public" ||
-        plan.hostEmail === user.email ||
-        viewerPlanIds.has(plan.id),
-    )
-    .map((plan) => {
+  const plans = normalisedPlans.map((plan) => {
     const host = publicProfiles.get(plan.hostEmail);
     const members = allPlanMembers
       .filter((member) => member.planId === plan.id)
       .map((member) => ({
         ...member,
-        displayName: publicProfiles.get(member.userEmail)?.displayName || "Roavly member",
-        username: publicProfiles.get(member.userEmail)?.username || "roavly.member",
+        displayName: publicProfiles.get(member.userEmail)?.displayName || "Waymark member",
+        username: publicProfiles.get(member.userEmail)?.username || "waymark.member",
         isViewer: member.userEmail === user.email,
       }));
     const viewerMembership = members.find((member) => member.isViewer);
@@ -164,8 +212,8 @@ export async function GET() {
       plan.hostEmail === user.email || viewerMembership?.status === "accepted";
     return {
       ...plan,
-      hostName: host?.displayName || "Roavly host",
-      hostUsername: host?.username || "roavly.member",
+      hostName: host?.displayName || "Waymark host",
+      hostUsername: host?.username || "waymark.member",
       isHost: plan.hostEmail === user.email,
       viewerStatus: plan.hostEmail === user.email ? "host" : viewerMembership?.status || "none",
       attendeeCount: members.filter((member) => member.status === "accepted").length,
@@ -177,21 +225,13 @@ export async function GET() {
     };
   });
 
-  const communityClubs = allClubs.filter((club) => {
-    const viewerMembership = allClubMembers.some(
-      (member) =>
-        member.clubId === club.id &&
-        member.userEmail === user.email &&
-        member.status === "active",
-    );
-    return club.visibility === "public" || club.ownerEmail === user.email || viewerMembership;
-  }).map((club) => {
+  const communityClubs = allClubs.map((club) => {
     const members = allClubMembers.filter((member) => member.clubId === club.id && member.status === "active");
     const owner = publicProfiles.get(club.ownerEmail);
     return {
       ...club,
-      ownerName: owner?.displayName || "Roavly member",
-      ownerUsername: owner?.username || "roavly.member",
+      ownerName: owner?.displayName || "Waymark member",
+      ownerUsername: owner?.username || "waymark.member",
       memberCount: members.length,
       viewerJoined: members.some((member) => member.userEmail === user.email),
       isOwner: club.ownerEmail === user.email,

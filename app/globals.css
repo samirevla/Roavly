@@ -17,7 +17,7 @@
 
 * { box-sizing: border-box; }
 html { background: var(--canvas); }
-body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-geist-sans), Inter, Arial, sans-serif; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-sans), "Plus Jakarta Sans", Inter, Arial, sans-serif; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgba(47, 163, 107, .25); outline-offset: 2px; }
@@ -48,12 +48,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   background: transparent;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 0 14px 28px;
   color: var(--forest);
-  font-size: 23px;
-  font-weight: 840;
-  letter-spacing: .14em;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.03em;
   cursor: pointer;
 }
 
@@ -189,6 +190,42 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .feed-tabs { display: flex; gap: 25px; height: 54px; align-items: end; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
 .feed-tabs button { height: 44px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 650; }
 .feed-tabs button.selected { border-bottom-color: var(--forest); color: var(--forest); font-weight: 780; }
+
+.near-me-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(8, 127, 91, 0.08), rgba(255, 255, 255, 0.92));
+  color: var(--ink);
+}
+.near-me-banner.blocked {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.08), rgba(255, 255, 255, 0.95));
+}
+.near-me-banner > svg { flex: 0 0 auto; margin-top: 2px; color: var(--forest); }
+.near-me-banner.blocked > svg { color: #b45309; }
+.near-me-banner strong { display: block; font-size: 12px; font-weight: 760; }
+.near-me-banner p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.near-me-banner button {
+  margin-left: auto;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--forest);
+  color: white;
+  font-size: 10px;
+  font-weight: 720;
+  cursor: pointer;
+}
+@media (max-width: 720px) {
+  .near-me-banner { margin-left: 10px; margin-right: 10px; }
+  .feed-tabs { gap: 14px; }
+}
+
 
 .post-card { overflow: hidden; margin-bottom: 21px; }
 .post-header { min-height: 74px; display: flex; align-items: center; gap: 11px; padding: 14px 18px; }
@@ -347,10 +384,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .empty-state p { max-width: 390px; margin: 0 0 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .empty-state button { min-height: 40px; border: 0; border-radius: 9px; padding: 0 14px; background: var(--forest); color: white; font-size: 11px; font-weight: 700; cursor: pointer; }
 
-.modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 26, 19, .52); backdrop-filter: blur(3px); }
+.modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(10, 26, 19, .52); backdrop-filter: blur(3px); }
 .composer-modal { width: min(600px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 16px; background: white; box-shadow: 0 25px 70px rgba(10, 26, 19, .25); }
 .composer-modal.wide { width: min(700px, 100%); }
-.composer-modal > header { display: flex; align-items: center; justify-content: space-between; padding: 19px 21px; border-bottom: 1px solid var(--border); }
+.composer-modal > header, .profile-modal > header { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 19px 21px; border-bottom: 1px solid var(--border); }
 .composer-modal h2 { margin: 0; font-size: 20px; }
 .composer-modal header button { width: 37px; height: 37px; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--canvas); cursor: pointer; }
 .composer-modal form { padding: 18px 21px 21px; }
@@ -359,7 +396,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .modal-author strong { font-size: 12px; }
 .modal-author small { color: var(--muted); font-size: 9px; }
 .composer-modal > form > textarea { width: 100%; min-height: 110px; resize: vertical; border: 0; outline: 0; padding: 14px 0; font-size: 14px; line-height: 1.55; }
-.real-photo-picker { position: relative; min-height: 185px; border: 2px dashed #bed4c9; border-radius: 12px; display: grid; place-items: center; overflow: hidden; background: #f8fbf9; color: var(--forest); cursor: pointer; }
+.real-photo-picker { position: relative; min-height: 185px; border: 1px solid #d5e5dc; border-radius: 16px; display: grid; place-items: center; overflow: hidden; background: #f7faf8; color: var(--forest); cursor: pointer; }
 .real-photo-picker > span { display: grid; justify-items: center; gap: 6px; }
 .real-photo-picker strong { font-size: 12px; }
 .real-photo-picker small { color: var(--muted); font-size: 9px; }
@@ -378,7 +415,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .modal-footer a { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; text-decoration: none; }
 .publish-button:disabled { opacity: .4; cursor: default; }
 
-.toast { position: fixed; z-index: 80; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 30px); padding: 12px 16px; border-radius: 10px; background: var(--forest); color: white; box-shadow: 0 12px 40px rgba(15, 61, 46, .25); font-size: 11px; font-weight: 650; }
+.toast { position: fixed; z-index: 110; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 30px); padding: 12px 16px; border-radius: 10px; background: var(--forest); color: white; box-shadow: 0 12px 40px rgba(15, 61, 46, .25); font-size: 11px; font-weight: 650; }
 .mobile-nav { display: none; }
 
 .welcome-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% 0%, #d6f8e8, transparent 42%), linear-gradient(145deg, #f8fbf9, #eef5f1); }
@@ -455,7 +492,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .welcome-card { padding: 42px 22px; border-radius: 18px; }
 }
 
-/* Roavly Action: discovery, planning, privacy and community */
+/* Waymark Action: discovery, planning, privacy and community */
 .discover-shell { display: grid; gap: 14px; }
 .discover-hero {
   position: relative;
@@ -699,7 +736,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .motivation-chain-banner > div { display: grid; gap: 2px; }
 .motivation-chain-banner strong { font-size: 10px; }
 .motivation-chain-banner span { color: #567064; font-size: 8px; }
-.gpx-import { position: relative; min-height: 58px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-top: 11px; border: 1px dashed #bed5ca; border-radius: 11px; padding: 10px 12px; background: #f8fcfa; color: var(--forest); cursor: pointer; }
+.gpx-import { position: relative; min-height: 58px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-top: 11px; border: 1px solid #d7e5de; border-radius: 12px; padding: 10px 12px; background: #f8fbf9; color: var(--forest); cursor: pointer; }
 .gpx-import > span { display: grid; gap: 2px; }
 .gpx-import strong { font-size: 10px; }
 .gpx-import small { color: var(--muted); font-size: 8px; line-height: 1.4; }
@@ -1005,6 +1042,43 @@ html, body { background: #fafbfa; }
   box-shadow: var(--shadow);
 }
 .journey-map { width: 100%; height: 500px; }
+.map-empty-overlay {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  background: rgba(247, 250, 248, .78);
+  color: var(--forest);
+  text-align: center;
+  pointer-events: none;
+}
+.map-empty-overlay > * { pointer-events: auto; }
+.map-empty-overlay > span {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mint-wash);
+  color: var(--forest);
+}
+.map-empty-overlay h2 { margin: 4px 0 0; font-size: 18px; }
+.map-empty-overlay p { max-width: 320px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.map-empty-overlay button {
+  margin-top: 4px;
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 14px;
+  background: var(--forest);
+  color: white;
+  font-size: 10px;
+  font-weight: 720;
+  cursor: pointer;
+}
 .map-loading, .map-error {
   position: absolute;
   z-index: 3;
@@ -1579,7 +1653,7 @@ body {
 
 body {
   color: var(--ink);
-  font-family: var(--font-geist-sans), "Avenir Next", "Segoe UI", sans-serif;
+  font-family: var(--font-sans), "Plus Jakarta Sans", "Segoe UI", sans-serif;
   font-size: 14px;
 }
 
@@ -2234,9 +2308,9 @@ button {
 }
 
 .real-photo-picker {
-  border-color: #addcc3;
-  border-radius: 14px;
-  background: var(--mint-wash);
+  border: 1px solid #d5e5dc;
+  border-radius: 16px;
+  background: #f7faf8;
 }
 
 .location-picker {
@@ -3198,13 +3272,15 @@ body {
 .loading-brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   color: var(--forest);
 }
 
 .loading-brand strong {
-  font-size: 29px;
-  letter-spacing: -.045em;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.03em;
 }
 
 .loading-nav {
@@ -5253,7 +5329,7 @@ body {
   }
 }
 
-/* Roavly Expedition — premium social product system */
+/* Waymark Expedition — premium social product system */
 :root {
   --forest: #123d31;
   --forest-2: #0b3026;
@@ -7413,7 +7489,7 @@ button:not(:disabled):active {
 .native-ad p { margin: 2px 0 0; overflow: hidden; color: #68746e; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .gear-pill { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; color: #315548; background: #edf4f0; border-radius: 999px; font-size: 11px; font-weight: 750; text-decoration: none; }
 .gear-pill small { color: #7b8882; font-size: 8px; text-transform: uppercase; }
-.roavly-plus-badge { display: inline-flex; width: max-content; align-items: center; gap: 5px; margin: 7px 0 0 8px; padding: 5px 8px; color: #0e6348; background: #dff6ea; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: .04em; }
+.waymark-plus-badge { display: inline-flex; width: max-content; align-items: center; gap: 5px; margin: 7px 0 0 8px; padding: 5px 8px; color: #0e6348; background: #dff6ea; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: .04em; }
 
 @media (max-width: 760px) {
   .revenue-hub { gap: 15px; padding-bottom: 20px; }
@@ -7466,7 +7542,7 @@ button:not(:disabled):active {
   .tip-cart button { flex: 1; }
 }
 
-/* Journey lifecycle and legible Roavly mark */
+/* Journey lifecycle and legible Waymark mark */
 .side-nav .brand-mark,
 .mobile-header .brand-mark {
   color: #197253;
@@ -7719,7 +7795,7 @@ button:not(:disabled):active {
   }
 }
 
-/* Kinetic Trail — approved Roavly social system */
+/* Kinetic Trail — approved Waymark social system */
 :root {
   --forest: #10271f;
   --forest-2: #071a13;
@@ -7740,8 +7816,8 @@ button:not(:disabled):active {
   --border: #dfe5e2;
   --soft-border: #edf0ee;
   --shadow: 0 14px 38px rgba(16, 39, 31, .08);
-  --font-ui: "Avenir Next", "SF Pro Text", var(--font-geist-sans), Arial, sans-serif;
-  --font-display: "Avenir Next Condensed", "Arial Narrow", var(--font-geist-sans), sans-serif;
+  --font-ui: var(--font-sans), "Plus Jakarta Sans", "SF Pro Text", Arial, sans-serif;
+  --font-display: var(--font-outfit), Outfit, sans-serif;
 }
 
 html,
@@ -7766,7 +7842,7 @@ body {
 h1,
 h2,
 h3,
-.roavly-wordmark,
+.waymark-wordmark,
 .today-adventures h2,
 .discover-hero h2,
 .visual-discovery h3,
@@ -7774,7 +7850,7 @@ h3,
 .rail-title h2,
 .passport-summary h2 {
   font-family: var(--font-display);
-  font-stretch: condensed;
+  font-stretch: normal;
 }
 
 button {
@@ -7786,52 +7862,48 @@ button:not(:disabled):active {
   transform: scale(.965);
 }
 
-.roavly-logo {
+.waymark-logo {
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--forest);
+  line-height: 1;
 }
 
-.roavly-logo-tile {
-  width: 42px;
-  height: 42px;
+.waymark-logo-tile {
+  width: 40px;
+  height: 40px;
   flex: 0 0 auto;
-  border: 1px solid #e6ebe8;
-  border-radius: 10px;
+  border: 0;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  background: #fff;
-  box-shadow: 0 5px 16px rgba(16, 39, 31, .08);
+  background: transparent;
+  box-shadow: 0 6px 18px rgba(15, 61, 46, .22);
+  overflow: hidden;
 }
 
-.roavly-logo-tile svg {
-  width: 31px;
-  height: 31px;
-  overflow: visible;
-  fill: none;
+.waymark-logo-tile svg,
+.waymark-logo-mark {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
-.roavly-logo-ridge,
-.roavly-logo-trail {
-  fill: none;
-  stroke-width: 8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.waymark-logo-w {
+  fill: #ffffff;
 }
 
-.roavly-logo-ridge { stroke: var(--forest); }
-.roavly-logo-trail { stroke: var(--emerald); }
-.roavly-logo-waypoint-keyline { fill: #fff; }
-.roavly-logo-waypoint { fill: var(--signal); }
-
-.roavly-wordmark {
+.waymark-wordmark {
   color: var(--forest);
-  font-size: 20px;
-  font-weight: 850;
-  letter-spacing: .17em;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.03em;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .app-shell {
@@ -7869,10 +7941,14 @@ button:not(:disabled):active {
 
 .kinetic-brand {
   width: max-content;
+  max-width: 100%;
   border: 0;
   padding: 0;
   background: transparent;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
 }
 
 .desktop-primary-nav {
@@ -8829,10 +8905,10 @@ button:not(:disabled):active {
 .new-chat-modal h2 {
   color: var(--forest);
   font-family: var(--font-display);
-  font-size: 27px;
-  font-weight: 900;
-  letter-spacing: -.04em;
-  text-transform: uppercase;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  text-transform: none;
 }
 
 .real-photo-picker,
@@ -8886,30 +8962,36 @@ button:not(:disabled):active {
 }
 
 .welcome-logo {
-  margin-bottom: 22px;
+  margin-bottom: 24px;
+  gap: 14px;
 }
 
-.welcome-logo .roavly-logo-tile {
-  width: 64px;
-  height: 64px;
+.welcome-logo .waymark-logo-tile {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
 }
 
-.welcome-logo .roavly-logo-tile svg {
-  width: 48px;
-  height: 48px;
+.welcome-logo .waymark-logo-tile svg,
+.welcome-logo .waymark-logo-mark {
+  width: 100%;
+  height: 100%;
 }
 
-.welcome-logo .roavly-wordmark {
-  font-size: 28px;
+.welcome-logo .waymark-wordmark {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -.035em;
 }
 
 .welcome-card h1 {
   color: var(--forest);
-  font-size: clamp(40px, 7vw, 64px);
-  font-weight: 900;
-  letter-spacing: -.06em;
-  line-height: .94;
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 6.2vw, 52px);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.05;
+  text-transform: none;
 }
 
 .welcome-card > button {
@@ -8917,9 +8999,10 @@ button:not(:disabled):active {
   background: var(--forest);
 }
 
-.loading-brand .roavly-logo-tile {
+.loading-brand .waymark-logo-tile {
   width: 40px;
   height: 40px;
+  border-radius: 12px;
 }
 
 @keyframes kineticBurst {
@@ -9007,19 +9090,28 @@ button:not(:disabled):active {
     padding: 0;
   }
 
-  .mobile-header .roavly-logo-tile {
-    width: 38px;
-    height: 38px;
-    border-radius: 9px;
+  .mobile-header .waymark-logo {
+    gap: 9px;
+    max-width: min(58vw, 220px);
   }
 
-  .mobile-header .roavly-logo-tile svg {
-    width: 28px;
-    height: 28px;
+  .mobile-header .waymark-logo-tile {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
   }
 
-  .mobile-header .roavly-wordmark {
+  .mobile-header .waymark-logo-tile svg,
+  .mobile-header .waymark-logo-mark {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-header .waymark-wordmark {
     font-size: 18px;
+    letter-spacing: -.03em;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .mobile-header-actions > button {
@@ -9329,7 +9421,7 @@ button:not(:disabled):active {
 }
 
 @media (max-width: 380px) {
-  .mobile-header .roavly-wordmark {
+  .mobile-header .waymark-wordmark {
     display: none;
   }
 
@@ -9343,7 +9435,89 @@ button:not(:disabled):active {
   }
 }
 
-/* iPhone Google Places search — keep the suggestion sheet in Roavly's light theme. */
+/* In-page location suggestions — avoid Google PlaceAutocompleteElement fullscreen sheet on iPhone. */
+.location-picker {
+  position: relative;
+  overflow: visible;
+}
+
+.google-autocomplete-shell.in-page input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #102019;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.google-autocomplete-shell.in-page input::placeholder {
+  color: #68736e;
+}
+
+.location-suggestions {
+  z-index: 8;
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: min(42dvh, 280px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #d5ddd9;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 36px rgba(16, 39, 31, .12);
+}
+
+.location-suggestions button {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #102019;
+  text-align: left;
+  cursor: pointer;
+}
+
+.location-suggestions button strong {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.location-suggestions button small {
+  color: #68736e;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.location-suggestions button.active,
+.location-suggestions button:hover {
+  background: #f2f8f4;
+}
+
+@media (max-width: 920px) {
+  .location-suggestions {
+    max-height: min(38dvh, 240px);
+  }
+
+  .google-autocomplete-shell.in-page {
+    position: relative;
+    z-index: 2;
+  }
+}
+
+/* iPhone Google Places search — keep the suggestion sheet in Waymark's light theme. */
 html {
   color-scheme: light;
 }
@@ -9441,7 +9615,7 @@ gmp-place-autocomplete {
   }
 
   .mobile-header .brand.compact,
-  .mobile-header .roavly-logo {
+  .mobile-header .waymark-logo {
     flex: 0 1 auto;
     min-width: 0;
   }
@@ -9885,7 +10059,7 @@ gmp-place-autocomplete {
 }
 
 @media (max-width: 390px) {
-  .mobile-header .roavly-wordmark {
+  .mobile-header .waymark-wordmark {
     display: none;
   }
 
@@ -10379,4 +10553,229 @@ gmp-place-autocomplete {
   }
   .explorer-identity .edit-profile { max-width: calc(100% - 84px); }
   .explorer-identity .profile-body h2 { font-size: 25px; }
+}
+
+
+/* Standalone email/password auth */
+.auth-card { width: min(480px, 100%); }
+.auth-form {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  margin: 0 0 12px;
+}
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--forest);
+  font-size: 12px;
+  font-weight: 650;
+}
+.auth-form input {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+}
+.auth-form button[type="submit"] {
+  min-height: 48px;
+  border: 0;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  background: var(--forest);
+  color: white;
+  font-weight: 720;
+  cursor: pointer;
+}
+.auth-form button[type="submit"]:disabled { opacity: .7; cursor: wait; }
+.auth-error { margin: 0; color: #b42318; font-size: 13px; }
+.auth-switch { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.auth-switch .linkish,
+button.linkish {
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ===== Share journey composer redesign (premium mobile flow) ===== */
+.share-composer > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.share-composer .composer-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.share-composer h2,
+.composer-modal.share-composer h2 {
+  margin: 0;
+  color: var(--forest);
+  font-family: var(--font-display), Outfit, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  text-transform: none !important;
+}
+
+.share-composer .real-photo-picker,
+.composer-modal .real-photo-picker {
+  border: 1px solid #d5e5dc !important;
+  border-style: solid !important;
+  border-radius: 16px !important;
+  background: #f7faf8;
+}
+
+.share-composer .real-photo-picker.has-error {
+  border-color: #e49a8f !important;
+  background: #fff8f6;
+}
+
+.composer-caption {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.composer-caption textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid #d5e5dc;
+  border-radius: 14px;
+  outline: 0;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.composer-caption textarea:focus {
+  border-color: #9ecbb4;
+  box-shadow: 0 0 0 3px rgba(47, 140, 104, .12);
+}
+
+.composer-essentials {
+  margin-top: 14px;
+}
+
+.composer-location {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid #d7e5de;
+  border-radius: 16px;
+  padding: 12px;
+  background: #fbfefd;
+}
+
+.composer-location .location-privacy-control {
+  margin-top: 0;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f4faf7;
+}
+
+.composer-location .location-privacy-control.compact {
+  grid-template-columns: 1fr minmax(180px, auto);
+}
+
+.share-composer .gpx-import,
+.journey-details-form .gpx-import {
+  border: 1px solid #d7e5de !important;
+  border-style: solid !important;
+  border-radius: 12px;
+  background: #f8fbf9;
+  margin: 10px 12px 0;
+}
+
+.share-composer .gpx-status {
+  margin: 8px 12px 0;
+}
+
+.share-composer .journey-details-form {
+  margin-top: 14px;
+}
+
+.share-composer .modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  margin-top: 18px;
+  margin-left: -21px;
+  margin-right: -21px;
+  margin-bottom: -21px;
+  padding: 12px 21px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: rgba(255, 255, 255, .96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.share-readiness .readiness-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.share-readiness .readiness-chips em {
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #edf5f0;
+  color: #4d6359;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: none;
+}
+
+@media (max-width: 720px) {
+  .composer-essentials {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-location .location-privacy-control.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .share-composer form {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .share-composer .modal-footer {
+    margin-left: -14px;
+    margin-right: -14px;
+    margin-bottom: -24px;
+    padding: 12px max(14px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+
+  .composer-caption textarea {
+    font-size: 16px;
+    min-height: 104px;
+  }
 }

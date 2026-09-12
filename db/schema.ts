@@ -320,6 +320,14 @@ export const mobileAuthCodes = sqliteTable(
   ],
 );
 
+export const authAccounts = sqliteTable("auth_accounts", {
+  email: text("email").primaryKey(),
+  passwordHash: text("password_hash").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 export const mobileAuthSessions = sqliteTable(
   "mobile_auth_sessions",
   {

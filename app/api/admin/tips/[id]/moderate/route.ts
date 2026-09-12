@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getChatGPTUser();
-  if (!user || !(await isRoavlyAdmin(user.email))) return Response.json({ error: "Roavly moderator access required." }, { status: 403 });
+  if (!user || !(await isRoavlyAdmin(user.email))) return Response.json({ error: "Waymark moderator access required." }, { status: 403 });
   const { id } = await context.params;
   const payload = (await request.json()) as { action?: "approve" | "reject" | "pull_down" | "refund"; notes?: string };
   const action = payload.action;

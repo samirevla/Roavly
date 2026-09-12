@@ -28,18 +28,18 @@ test("the production manifest enables durable database and photo storage", async
   assert.equal(manifest.r2, "BUCKET");
 });
 
-test("the approved Roavly identity and Kinetic Trail social system are production assets", async () => {
+test("the approved Waymark identity and Kinetic Trail social system are production assets", async () => {
   const page = await source("app/page.tsx");
-  const logo = await source("app/components/roavly-logo.tsx");
+  const logo = await source("app/components/waymark-logo.tsx");
   const favicon = await source("public/favicon.svg");
   const styles = await source("app/globals.css");
   assert.match(page, /desktop-topbar/);
-  assert.match(page, /<RoavlyLogo/);
-  assert.match(logo, /roavly-logo-waypoint/);
-  assert.match(logo, /ROAVLY/);
-  assert.match(favicon, /#10271F/);
-  assert.match(favicon, /#20A66A/);
-  assert.match(favicon, /#F1783D/);
+  assert.match(page, /<WaymarkLogo/);
+  assert.match(logo, /waymark-logo-tile/);
+  assert.match(logo, /Waymark/);
+  assert.match(favicon, /#0F3D2E/);
+  assert.match(favicon, /#196048/);
+  assert.match(favicon, /#A7F3D0/);
   assert.match(styles, /Kinetic Trail/);
   assert.match(styles, /--signal: #f1783d/);
   assert.match(styles, /\.post-actions \.motivate-button/);
@@ -72,7 +72,7 @@ test("real photo uploads are required and constrained on both client and server"
   const uploadImplementation = `${postsApi}\n${photoUpload}`;
   assert.match(page, /type="file"/);
   assert.match(page, /accept="image\/\*,\.heic,\.heif/);
-  assert.match(page, /automatically optimised/);
+  assert.match(page, /converted and resized automatically/);
   assert.match(clientPhoto, /canvas-heic-to-jpeg/);
   assert.ok(
     clientPhoto.indexOf("converter.convertToFile") < clientPhoto.indexOf('import("heic2any")'),
@@ -93,9 +93,13 @@ test("real photo uploads are required and constrained on both client and server"
   assert.match(uploadImplementation, /image\/jpeg/);
   assert.match(uploadImplementation, /image\/png/);
   assert.match(uploadImplementation, /image\/webp/);
-  assert.match(postsApi, /photoExtension\(contentType\)/);
+  assert.doesNotMatch(postsApi, /arrayBuffer\s*\(/);
+  assert.match(postsApi, /assertMediaObjectExists/);
+  assert.match(postsApi, /imageKey must match posts/);
+  assert.match(page, /\/api\/uploads\/sign/);
+  assert.match(page, /post_photo/);
   assert.match(page, /Upload needs attention/);
-  assert.match(page, /Still needed:/);
+  assert.match(page, /Still needed/);
   assert.match(clientPhoto, /api\/client-diagnostics/);
   assert.match(page, /reportPhotoUploadFailure/);
   assert.match(page, /X-Roavly-Photo-Bytes/);
@@ -109,9 +113,10 @@ test("choosing a Google location preserves the completed journey form", async ()
   assert.match(page, /\.\.\.current/);
   assert.match(picker, /const onSelectRef = useRef\(onSelect\)/);
   assert.match(picker, /onSelectRef\.current\(\{/);
-  assert.match(picker, /autocomplete\.style\.colorScheme = "light"/);
-  assert.match(styles, /gmp-place-autocomplete/);
-  assert.match(styles, /color-scheme: light !important/);
+  assert.match(picker, /AutocompleteSuggestion\.fetchAutocompleteSuggestions/);
+  assert.match(picker, /location-suggestions/);
+  assert.match(styles, /\.location-suggestions/);
+  assert.match(styles, /In-page location suggestions/);
 });
 
 test("social routes enforce sign-in before exposing feed, friends, maps or media", async () => {
@@ -343,7 +348,7 @@ test("the premium social redesign stays real-data driven and preserves every cor
   assert.match(explore, /filteredPosts\.slice/);
   assert.match(discover, /Journey Together/);
   assert.match(messages, /Itinerary & packing notes/);
-  assert.match(css, /Roavly Expedition/);
+  assert.match(css, /Waymark Expedition/);
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(`${page}\n${explore}`, /Billy completed|Sarah inspired|James started|Amanda uploaded|Alex completed/);
 });
@@ -386,8 +391,8 @@ test("journeys store validated Google places for the accessible activity map", a
   assert.match(postsApi, /latitude < -90 \|\| latitude > 90/);
   assert.match(postsApi, /longitude < -180 \|\| longitude > 180/);
   assert.match(postsApi, /Choose a location from Google Maps/);
-  assert.match(picker, /PlaceAutocompleteElement/);
-  assert.match(picker, /placePrediction\.toPlace/);
+  assert.match(picker, /AutocompleteSuggestion/);
+  assert.match(picker, /prediction\.toPlace\(/);
   assert.match(map, /AdvancedMarkerElement/);
   assert.match(map, /gmpClickable: true/);
   assert.match(map, /title:/);

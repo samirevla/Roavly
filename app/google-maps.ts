@@ -12,7 +12,8 @@ let mapsPromise: Promise<MapsConfig> | null = null;
 function requiredLibrariesReady() {
   return Boolean(
     window.google?.maps?.Map &&
-    window.google.maps.places?.PlaceAutocompleteElement &&
+    window.google.maps.places?.AutocompleteSuggestion &&
+    window.google.maps.places?.AutocompleteSessionToken &&
     window.google.maps.marker?.AdvancedMarkerElement,
   );
 }

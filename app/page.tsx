@@ -14,6 +14,7 @@ import {
   ImagePlus,
   Info,
   LoaderCircle,
+  LocateFixed,
   LogIn,
   LogOut,
   MapPin,
@@ -46,14 +47,23 @@ import { DiscoverView } from "./components/discover-view";
 import { AdSlot } from "./components/ad-slot";
 import { GoogleLocationPicker, SelectedPlace } from "./components/google-location-picker";
 import { MessagesView } from "./components/messages-view";
-import { RoavlyLogo } from "./components/roavly-logo";
+import { WaymarkLogo } from "./components/waymark-logo";
 import {
   preparePhotoForUpload,
   reportPhotoPreparationFailure,
   reportPhotoUploadFailure,
 } from "./client-photo";
+import {
+  filterNearbyPosts,
+  haversineKm,
+  NEAR_ME_RADIUS_KM,
+  type GeoPoint,
+} from "./geo";
 import { friendlyUploadError } from "./photo-upload";
 import { POSITIVE_ENCOURAGEMENTS } from "./positive-comments";
+
+type FeedMode = "Near Me" | "Community" | "Friends";
+type UserLocationStatus = "idle" | "pending" | "ready" | "denied" | "unavailable";
 
 type NavKey = "Feed" | "Explore" | "Messages" | "Friends" | "Profile";
 type Relationship = "none" | "outgoing" | "incoming" | "friends";
@@ -208,12 +218,14 @@ const outdoorAchievements = [
   { minutes: 300, name: "Trail Regular", description: "Reach 5 hours outdoors" },
   { minutes: 600, name: "Outdoor Adventurer", description: "Reach 10 hours outdoors" },
   { minutes: 1500, name: "Wild Spirit", description: "Reach 25 hours outdoors" },
-  { minutes: 3000, name: "Roavly Legend", description: "Reach 50 hours outdoors" },
+  { minutes: 3000, name: "Waymark Legend", description: "Reach 50 hours outdoors" },
 ];
 
 export default function HomePage() {
   const [activeNav, setActiveNav] = useState<NavKey>("Feed");
-  const [feedMode, setFeedMode] = useState<"Community" | "Friends">("Community");
+  const [feedMode, setFeedMode] = useState<FeedMode>("Near Me");
+  const [userLocation, setUserLocation] = useState<GeoPoint | null>(null);
+  const [locationStatus, setLocationStatus] = useState<UserLocationStatus>("idle");
   const [viewer, setViewer] = useState<Viewer | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<SavedPost[]>([]);
@@ -261,7 +273,7 @@ export default function HomePage() {
         setPeople(friendPayload.people ?? []);
       } catch (error) {
         if (active) {
-          setToast(error instanceof Error ? error.message : "Roavly could not load.");
+          setToast(error instanceof Error ? error.message : "Waymark could not load.");
           window.setTimeout(() => setToast(""), 3000);
         }
       } finally {
@@ -279,6 +291,16 @@ export default function HomePage() {
       photoReadId.current += 1;
     };
   }, []);
+
+  useEffect(() => {
+    const needsLocation =
+      (activeNav === "Feed" && feedMode === "Near Me") ||
+      (activeNav === "Explore" && discoverStart === "Map");
+    if (!viewer || !needsLocation) return;
+    requestUserLocation();
+    // Intentionally only re-run when the surface that needs location is entered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeNav, discoverStart, feedMode, viewer]);
 
   useEffect(() => {
     if (!viewer) return;
@@ -304,10 +326,17 @@ export default function HomePage() {
     () => new Set(people.filter((person) => person.relationship === "friends").map((person) => person.username)),
     [people],
   );
+  const nearMeRadiusKm = profile?.travelRadiusKm || NEAR_ME_RADIUS_KM;
   const visiblePosts = useMemo(() => {
-    if (feedMode === "Community") return posts;
-    return posts.filter((post) => post.isOwner || friendUsernames.has(post.authorUsername));
-  }, [feedMode, friendUsernames, posts]);
+    if (feedMode === "Friends") {
+      return posts.filter((post) => post.isOwner || friendUsernames.has(post.authorUsername));
+    }
+    if (feedMode === "Near Me") {
+      if (locationStatus !== "ready" || !userLocation) return [];
+      return filterNearbyPosts(posts, userLocation, nearMeRadiusKm);
+    }
+    return posts;
+  }, [feedMode, friendUsernames, locationStatus, nearMeRadiusKm, posts, userLocation]);
   const myPosts = useMemo(() => posts.filter((post) => post.isOwner), [posts]);
   const outdoorMinutes = useMemo(
     () => myPosts.reduce((total, post) => total + post.durationMinutes, 0),
@@ -315,7 +344,7 @@ export default function HomePage() {
   );
   const friends = people.filter((person) => person.relationship === "friends");
   const incomingRequests = people.filter((person) => person.relationship === "incoming");
-  const profileName = profile?.displayName || viewer?.displayName || "Roavly member";
+  const profileName = profile?.displayName || viewer?.displayName || "Waymark member";
   const profileUsername = profile?.username ? `@${profile.username}` : "";
   const initial = profileName.charAt(0).toUpperCase() || "R";
   const firstName = profileName.split(" ")[0] || "adventurer";
@@ -336,8 +365,51 @@ export default function HomePage() {
     window.setTimeout(() => setToast(""), 3000);
   }
 
+  function requestUserLocation(options?: { force?: boolean }) {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setLocationStatus("unavailable");
+      setUserLocation(null);
+      return;
+    }
+    if (!options?.force && (locationStatus === "pending" || locationStatus === "ready")) {
+      return;
+    }
+    setLocationStatus("pending");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationStatus("ready");
+      },
+      (error) => {
+        setUserLocation(null);
+        setLocationStatus(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable");
+      },
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 120000 },
+    );
+  }
+
+  function openActivityMap() {
+    setDiscoverStart("Map");
+    setActiveNav("Explore");
+    requestUserLocation();
+    showToast("Opened Near Me · within about 50 km.");
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const target =
+          document.querySelector(".explore-screen") ||
+          document.querySelector(".map-empty-overlay") ||
+          document.querySelector(".explore-empty") ||
+          document.querySelector(".map-stage");
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
+
   function signIn() {
-    window.location.href = "/signin-with-chatgpt?return_to=%2F";
+    window.location.href = "/login?return_to=%2F";
   }
 
   async function choosePhoto(file: File | null) {
@@ -384,13 +456,54 @@ export default function HomePage() {
     setPublishing(true);
     setComposerError("");
     try {
-      const form = new FormData();
-      Object.entries(draft).forEach(([key, value]) => form.append(key, value));
-      form.append("photo", photo);
+      const postId = crypto.randomUUID();
+      const signResponse = await fetch("/api/uploads/sign", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose: "post_photo",
+          contentType: photo.type || "image/jpeg",
+          byteSize: photo.size,
+          postId,
+        }),
+      });
+      const signed = (await signResponse.json()) as {
+        error?: string;
+        key?: string;
+        uploadUrl?: string;
+        contentType?: string;
+      };
+      if (!signResponse.ok || !signed.uploadUrl || !signed.key || !signed.contentType) {
+        throw new Error(signed.error || "Could not start the photo upload.");
+      }
+
+      const putResponse = await fetch(signed.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "content-type": signed.contentType,
+          "X-Roavly-Photo-Bytes": String(photo.size),
+        },
+        body: photo,
+      });
+      const putPayload = (await putResponse.json().catch(() => ({}))) as {
+        error?: string;
+        key?: string;
+      };
+      if (!putResponse.ok) {
+        throw new Error(putPayload.error || "Photo upload failed.");
+      }
+
       const response = await fetch("/api/posts", {
         method: "POST",
-        body: form,
-        headers: { "X-Roavly-Photo-Bytes": String(photo.size) },
+        headers: {
+          "content-type": "application/json",
+          "X-Roavly-Photo-Bytes": String(photo.size),
+        },
+        body: JSON.stringify({
+          postId,
+          imageKey: signed.key,
+          ...draft,
+        }),
       });
       const payload = (await response.json()) as { post?: SavedPost; error?: string };
       if (!response.ok || !payload.post) throw new Error(payload.error || "Your journey could not be shared.");
@@ -546,7 +659,7 @@ export default function HomePage() {
   }
 
   async function sharePost(post: SavedPost) {
-    const shareData = { title: `${post.authorName} on Roavly`, text: post.caption, url: window.location.href };
+    const shareData = { title: `${post.authorName} on Waymark`, text: post.caption, url: window.location.href };
     try {
       const recap = await createJourneyRecap(post);
       if (recap && navigator.share && navigator.canShare?.({ files: [recap] })) {
@@ -564,7 +677,7 @@ export default function HomePage() {
           showToast("Journey recap downloaded.");
         } else {
           await navigator.clipboard.writeText(window.location.href);
-          showToast("Roavly link copied.");
+          showToast("Waymark link copied.");
         }
       }
     } catch (error) {
@@ -650,8 +763,8 @@ export default function HomePage() {
   return (
     <main className={`app-shell ${activeNav === "Messages" ? "messages-active" : ""}`}>
       <header className="desktop-topbar">
-        <button className="kinetic-brand" onClick={() => setActiveNav("Feed")} aria-label="Roavly home">
-          <RoavlyLogo />
+        <button className="kinetic-brand" onClick={() => setActiveNav("Feed")} aria-label="Waymark home">
+          <WaymarkLogo />
         </button>
         <nav className="desktop-primary-nav" aria-label="Primary navigation">
           {primaryNavigation.map(({ label, nav, discover, icon: Icon }) => (
@@ -662,15 +775,15 @@ export default function HomePage() {
           <button className="desktop-create-action" onClick={() => setComposerOpen(true)}><Plus size={19} /><span>Create</span></button>
         </nav>
         <div className="desktop-social-actions">
-          <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }} aria-label="Search and explore"><Search size={20} /></button>
+          <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
           <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications" className="header-notifications"><Bell size={20} />{incomingRequests.length > 0 && <i />}</button>
           <button onClick={() => setActiveNav("Messages")} aria-label="Messages" className="header-notifications"><MessageCircle size={20} />{unreadMessages > 0 && <i />}</button>
           <button className="desktop-avatar-button" onClick={() => setActiveNav("Profile")} aria-label="Open profile"><span className="avatar">{initial}</span></button>
         </div>
       </header>
       <aside className="side-nav" aria-label="Primary navigation">
-        <button className="brand" onClick={() => setActiveNav("Feed")} aria-label="Roavly home">
-          <RoavlyLogo />
+        <button className="brand" onClick={() => setActiveNav("Feed")} aria-label="Waymark home">
+          <WaymarkLogo />
         </button>
         <nav className="nav-list">
           {primaryNavigation.map(({ label, nav, discover, icon: Icon }) => (
@@ -691,9 +804,9 @@ export default function HomePage() {
 
       <section className="main-column">
         <header className="mobile-header">
-          <button className="brand compact" onClick={() => setActiveNav("Feed")} aria-label="Roavly home"><RoavlyLogo /></button>
+          <button className="brand compact" onClick={() => setActiveNav("Feed")} aria-label="Waymark home"><WaymarkLogo /></button>
           <div className="mobile-header-actions">
-            <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }} aria-label="Search and explore"><Search size={20} /></button>
+            <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
             <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications"><Bell size={20} />{incomingRequests.length > 0 && <i>{incomingRequests.length}</i>}</button>
             <button onClick={() => setActiveNav("Messages")} aria-label="Messages"><MessageCircle size={20} />{unreadMessages > 0 && <i>{Math.min(99, unreadMessages)}</i>}</button>
           </div>
@@ -715,7 +828,7 @@ export default function HomePage() {
             </span>
           </div>
           <div className="header-actions">
-            <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }} aria-label="Search journeys"><Search size={21} /></button>
+            <button onClick={openActivityMap} aria-label="Search journeys"><Search size={21} /></button>
             <button onClick={() => setActiveNav("Friends")} aria-label="Open friends and notifications" className="header-notifications"><Bell size={21} />{incomingRequests.length > 0 && <i />}</button>
             <button onClick={() => setActiveNav("Messages")} aria-label="Open messages" className="header-notifications"><MessageCircle size={21} />{unreadMessages > 0 && <i />}</button>
             <button onClick={() => setActiveNav("Profile")} aria-label="Open profile"><span className="avatar">{initial}</span></button>
@@ -737,6 +850,9 @@ export default function HomePage() {
             reportPost={reportPost}
             sharePost={sharePost}
             saveJourney={saveJourney}
+            locationStatus={locationStatus}
+            nearMeRadiusKm={nearMeRadiusKm}
+            onRequestLocation={() => requestUserLocation({ force: true })}
           />
         )}
         {activeNav === "Explore" && (
@@ -753,6 +869,10 @@ export default function HomePage() {
               setActiveNav("Messages");
             }}
             showToast={showToast}
+            userLocation={userLocation}
+            locationStatus={locationStatus}
+            onRequestLocation={() => requestUserLocation({ force: true })}
+            nearMeRadiusKm={nearMeRadiusKm}
           />
         )}
         {activeNav === "Messages" && (
@@ -776,15 +896,15 @@ export default function HomePage() {
             openMessage={openMessage}
             inviteFriends={async () => {
               const shareData = {
-                title: "Join me on Roavly",
-                text: "Join my outdoor circle on Roavly so we can share journeys and motivate each other.",
+                title: "Join me on Waymark",
+                text: "Join my outdoor circle on Waymark so we can share journeys and motivate each other.",
                 url: window.location.origin,
               };
               try {
                 if (navigator.share) await navigator.share(shareData);
                 else {
                   await navigator.clipboard.writeText(window.location.origin);
-                  showToast("Roavly invite link copied.");
+                  showToast("Waymark invite link copied.");
                 }
               } catch {
                 // Closing the native share sheet is not an error.
@@ -808,7 +928,7 @@ export default function HomePage() {
             outdoorMinutes={outdoorMinutes}
             openEdit={() => setProfileOpen(true)}
             openComposer={() => setComposerOpen(true)}
-            openMap={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }}
+            openMap={openActivityMap}
             toggleMotivation={toggleMotivation}
             addComment={addComment}
             deleteComment={deleteComment}
@@ -824,8 +944,8 @@ export default function HomePage() {
         <OutdoorTracker minutes={outdoorMinutes} compact />
         <section className="rail-card explore-rail">
           <span><Compass size={22} /></span>
-          <div><strong>Explore nearby</strong><p>Discover routes and outdoor spots through real community journeys.</p></div>
-          <button onClick={() => { setDiscoverStart("Map"); setActiveNav("Explore"); }}>Open map</button>
+          <div><strong>Near Me · ~{NEAR_ME_RADIUS_KM} km</strong><p>Only journeys within about 50 km of your location, ranked closest first.</p></div>
+          <button onClick={openActivityMap}>Open map</button>
         </section>
         <section className="rail-card">
           <div className="rail-title"><h2>Your friends</h2><button onClick={() => setActiveNav("Friends")}>View all</button></div>
@@ -835,7 +955,7 @@ export default function HomePage() {
             <div className="rail-empty"><Users size={24} /><p>Find friends and build your outdoor circle.</p><button onClick={() => setActiveNav("Friends")}>Find friends</button></div>
           )}
         </section>
-        <section className="rail-card community-note"><ShieldCheck size={22} /><div><strong>Community safety</strong><p>Only share locations you are comfortable making public. Report anything that breaks Roavly’s positive spirit.</p></div></section>
+        <section className="rail-card community-note"><ShieldCheck size={22} /><div><strong>Community safety</strong><p>Only share locations you are comfortable making public. Report anything that breaks Waymark’s positive spirit.</p></div></section>
       </aside>
 
       <nav className="mobile-nav" aria-label="Mobile navigation">
@@ -872,15 +992,104 @@ export default function HomePage() {
 }
 
 function WelcomeScreen({ signIn }: { signIn: () => void }) {
+  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(mode === "signup" ? "/api/auth/signup" : "/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          displayName: displayName || undefined,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error || "Could not authenticate.");
+        return;
+      }
+      window.location.href = "/";
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="welcome-screen">
-      <section className="welcome-card">
-        <RoavlyLogo className="welcome-logo" />
-        <span className="eyebrow">Welcome to Roavly</span>
+      <section className="welcome-card auth-card">
+        <WaymarkLogo className="welcome-logo" />
+        <span className="eyebrow">Welcome to Waymark</span>
         <h1>Share the outdoors.<br />Motivate your people.</h1>
-        <p>Roavly is a positive social community for real outdoor journeys. Create your account, add friends and share your weekend adventures.</p>
-        <button onClick={signIn}><LogIn size={19} /> Continue with ChatGPT</button>
-        <small>By continuing, you confirm you are at least 16 and agree to keep Roavly safe and positive.</small>
+        <p>Waymark is a positive outdoor community for real journeys and social connection outdoors. Create your account with email and password — no third-party login required.</p>
+        <form className="auth-form" onSubmit={submit}>
+          {mode === "signup" && (
+            <label>
+              Display name
+              <input
+                autoComplete="name"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Alex Ridge"
+              />
+            </label>
+          )}
+          <label>
+            Email
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 8 characters"
+            />
+          </label>
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button type="submit" disabled={busy}>
+            <LogIn size={19} />
+            {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+          </button>
+        </form>
+        <p className="auth-switch">
+          {mode === "signup" ? (
+            <>
+              Already have an account?{" "}
+              <button type="button" className="linkish" onClick={() => setMode("login")}>Sign in</button>
+            </>
+          ) : (
+            <>
+              New here?{" "}
+              <button type="button" className="linkish" onClick={() => setMode("signup")}>Create an account</button>
+              {" · "}
+              <button type="button" className="linkish" onClick={signIn}>Open login page</button>
+            </>
+          )}
+        </p>
+        <small>By continuing, you confirm you are at least 16 and agree to keep Waymark safe and positive.</small>
       </section>
     </main>
   );
@@ -888,9 +1097,9 @@ function WelcomeScreen({ signIn }: { signIn: () => void }) {
 
 function LoadingScreen() {
   return (
-    <main className="fresh-loading-shell" aria-live="polite" aria-label="Opening Roavly">
+    <main className="fresh-loading-shell" aria-live="polite" aria-label="Opening Waymark">
       <aside>
-        <div className="loading-brand"><RoavlyLogo /></div>
+        <div className="loading-brand"><WaymarkLogo /></div>
         <div className="loading-nav">{[Home, Compass, MessageCircle, Users, User].map((Icon, index) => <span key={index}><Icon size={21} /><i /></span>)}</div>
       </aside>
       <section>
@@ -899,7 +1108,7 @@ function LoadingScreen() {
         <div className="loading-post"><header><span /><i /></header><div /><footer><i /><i /><i /></footer></div>
       </section>
       <aside><div className="loading-rail-card"><i /><strong /><span /><span /><span /></div><div className="loading-rail-card short"><i /><strong /><span /></div></aside>
-      <p>Opening Roavly…</p>
+      <p>Opening Waymark…</p>
     </main>
   );
 }
@@ -918,10 +1127,13 @@ function Feed({
   reportPost,
   sharePost,
   saveJourney,
+  locationStatus,
+  nearMeRadiusKm,
+  onRequestLocation,
 }: {
   posts: SavedPost[];
-  feedMode: "Community" | "Friends";
-  setFeedMode: (mode: "Community" | "Friends") => void;
+  feedMode: FeedMode;
+  setFeedMode: (mode: FeedMode) => void;
   initial: string;
   profileName: string;
   openComposer: () => void;
@@ -932,7 +1144,34 @@ function Feed({
   reportPost: (post: SavedPost) => void;
   sharePost: (post: SavedPost) => void;
   saveJourney: (post: SavedPost, action?: "toggle" | "plan") => void;
+  locationStatus: UserLocationStatus;
+  nearMeRadiusKm: number;
+  onRequestLocation: () => void;
 }) {
+  const nearMeBlocked = feedMode === "Near Me" && (locationStatus === "denied" || locationStatus === "unavailable");
+  const nearMePending = feedMode === "Near Me" && locationStatus === "pending";
+  const emptyIcon = feedMode === "Near Me" ? LocateFixed : feedMode === "Community" ? ImagePlus : Users;
+  const emptyTitle = feedMode === "Near Me"
+    ? nearMeBlocked
+      ? "Location needed for Near Me"
+      : nearMePending
+        ? "Finding journeys near you"
+        : "Nothing nearby yet"
+    : feedMode === "Community"
+      ? "Your next adventure starts here"
+      : "Adventures are better together";
+  const emptyCopy = feedMode === "Near Me"
+    ? nearMeBlocked
+      ? "Near Me only shows journeys within about 50 km. Enable location, or browse Community meanwhile."
+      : nearMePending
+        ? "Hang tight while Waymark uses your current position."
+        : `No geotagged journeys within about ${nearMeRadiusKm} km. Share one nearby so neighbours can discover it.`
+    : feedMode === "Community"
+      ? "Waymark is empty by design. Share a real outdoor photo to start the community."
+      : "Add friends or be the first in your group to share an adventure.";
+  const emptyAction = feedMode === "Near Me" && nearMeBlocked ? "Enable location" : feedMode === "Community" ? "Share first journey" : "Share a journey";
+  const emptyActionHandler = feedMode === "Near Me" && nearMeBlocked ? onRequestLocation : openComposer;
+
   return (
     <div className="social-feed">
       <TodayAdventures posts={posts} openComposer={openComposer} />
@@ -949,19 +1188,43 @@ function Feed({
         </div>
       </section>
       <div className="feed-tabs" role="tablist" aria-label="Feed filters">
-        {(["Community", "Friends"] as const).map((mode) => <button key={mode} role="tab" aria-selected={feedMode === mode} className={feedMode === mode ? "selected" : ""} onClick={() => setFeedMode(mode)}>{mode}</button>)}
+        {(["Near Me", "Community", "Friends"] as const).map((mode) => (
+          <button key={mode} role="tab" aria-selected={feedMode === mode} className={feedMode === mode ? "selected" : ""} onClick={() => setFeedMode(mode)}>{mode}</button>
+        ))}
       </div>
+      {feedMode === "Near Me" && (
+        <div className={`near-me-banner ${nearMeBlocked ? "blocked" : ""}`} role="status">
+          <LocateFixed size={18} />
+          <div>
+            <strong>
+              {nearMePending
+                ? "Locating you"
+                : nearMeBlocked
+                  ? "Location unavailable"
+                  : `Within about ${nearMeRadiusKm} km`}
+            </strong>
+            <p>
+              {nearMePending
+                ? "Near Me ranks geotagged journeys closest to you first."
+                : nearMeBlocked
+                  ? "Enable location to see local adventures. Posts without a map pin never appear here."
+                  : `${posts.length} ${posts.length === 1 ? "journey" : "journeys"} nearby · posts without coordinates stay in Community.`}
+            </p>
+          </div>
+          {nearMeBlocked ? <button type="button" onClick={onRequestLocation}>Try again</button> : null}
+        </div>
+      )}
       <CommunityPulse posts={posts} />
       <AdSlot placement="feed" />
       {posts.length ? posts.map((post) => (
         <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} sharePost={sharePost} saveJourney={saveJourney} />
       )) : (
         <EmptyState
-          icon={feedMode === "Community" ? ImagePlus : Users}
-          title={feedMode === "Community" ? "Your next adventure starts here" : "Adventures are better together"}
-          copy={feedMode === "Community" ? "Roavly is empty by design. Share a real outdoor photo to start the community." : "Add friends or be the first in your group to share an adventure."}
-          action={feedMode === "Community" ? "Share first journey" : "Share a journey"}
-          onAction={openComposer}
+          icon={emptyIcon}
+          title={emptyTitle}
+          copy={emptyCopy}
+          action={emptyAction}
+          onAction={emptyActionHandler}
         />
       )}
     </div>
@@ -1410,11 +1673,11 @@ function Friends({
       {allFriends.length === 0 && (
         <section className="friends-empty">
           <span><Users size={34} /></span>
-          <div><span className="eyebrow">YOUR OUTDOOR CIRCLE</span><h2>Adventures are better together</h2><p>Invite friends to Roavly, then add each other here. Their outdoor journeys will appear on this page once you are connected.</p></div>
+          <div><span className="eyebrow">YOUR OUTDOOR CIRCLE</span><h2>Adventures are better together</h2><p>Invite friends to Waymark, then add each other here. Their outdoor journeys will appear on this page once you are connected.</p></div>
           <button onClick={inviteFriends}><Share2 size={17} /> Invite friends</button>
         </section>
       )}
-      <div className="member-search"><Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search members by name, username or activity" aria-label="Search Roavly members" /></div>
+      <div className="member-search"><Search size={20} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search members by name, username or activity" aria-label="Search Waymark members" /></div>
       {incoming.length > 0 && <MemberSection title="Friend requests" people={incoming} manageFriend={manageFriend} openMessage={openMessage} />}
       {friends.length > 0 && <MemberSection title="Your friends" people={friends} manageFriend={manageFriend} openMessage={openMessage} />}
       <MemberSection title={people.length ? "Find more people" : "No other members yet"} people={discover} manageFriend={manageFriend} openMessage={openMessage} emptyCopy={people.length ? "No members match your search." : "Share your invite link. New members appear here after they create their account."} />
@@ -1457,7 +1720,7 @@ function MemberCard({ person, manageFriend, openMessage }: { person: Person; man
   return (
     <article className="member-card">
       <Avatar name={person.displayName} large />
-      <div className="member-copy"><h3>{person.displayName}</h3><span>@{person.username}</span>{person.bio && <p>{person.bio}</p>}<small>{[person.homeBase, person.favoriteActivities].filter(Boolean).join(" · ") || "New to Roavly"}</small><div className="match-tags"><span>{person.experienceLevel}</span><span>{person.pacePreference} pace</span><span>{person.groupStyle}</span></div></div>
+      <div className="member-copy"><h3>{person.displayName}</h3><span>@{person.username}</span>{person.bio && <p>{person.bio}</p>}<small>{[person.homeBase, person.favoriteActivities].filter(Boolean).join(" · ") || "New to Waymark"}</small><div className="match-tags"><span>{person.experienceLevel}</span><span>{person.pacePreference} pace</span><span>{person.groupStyle}</span></div></div>
       <div className="friend-actions">
         {person.relationship === "none" && <button onClick={() => manageFriend(person.username, "request")}><UserPlus size={16} /> Add friend</button>}
         {person.relationship === "outgoing" && <button className="muted" disabled><Check size={16} /> Requested</button>}
@@ -1529,7 +1792,7 @@ function ProfileView({
             <button className="edit-profile" onClick={openEdit}><Edit3 size={16} /> Edit profile</button>
           </div>
           <span className="explorer-level"><Award size={14} /> {explorerLevel}</span>
-          {plusActive && <span className="roavly-plus-badge"><Gem size={14} /> Roavly+ Explorer</span>}
+          {plusActive && <span className="waymark-plus-badge"><Gem size={14} /> Waymark+ Explorer</span>}
           <h2>{profile.displayName}</h2><span className="profile-handle">@{profile.username}</span>
           <p>{profile.bio || "Tell your outdoor story—what gets you moving, wandering and looking for the next trail."}</p>
           <div className="profile-meta">{profile.homeBase && <span><MapPin size={16} /> {profile.homeBase}</span>}{profile.favoriteActivities && <span><Compass size={16} /> {profile.favoriteActivities}</span>}</div>
@@ -1647,12 +1910,31 @@ function ComposerModal({
     !draft.placeId || !draft.latitude || !draft.longitude ? "a Google Maps location" : "",
   ].filter(Boolean);
   const canShare = !missingRequirements.length && !preparingPhoto && !publishing;
+  const readinessHint = publishing
+    ? "Uploading your journey…"
+    : preparingPhoto
+      ? "Preparing your photo…"
+      : !missingRequirements.length
+        ? "Ready to share"
+        : !photo
+          ? "Add a photo to continue"
+          : !draft.caption.trim()
+            ? "Add a caption to continue"
+            : !Number(draft.durationMinutes)
+              ? "Add time outdoors to continue"
+              : "Add a location to continue";
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
-      <section className="composer-modal wide" role="dialog" aria-modal="true" aria-labelledby="composer-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><span className="eyebrow">Public community post</span><h2 id="composer-title">Share a journey</h2></div><button onClick={close} aria-label="Close composer"><X size={22} /></button></header>
+      <section className="composer-modal wide share-composer" role="dialog" aria-modal="true" aria-labelledby="composer-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <p className="composer-kicker">Visible to Waymark members</p>
+            <h2 id="composer-title">Share a journey</h2>
+          </div>
+          <button onClick={close} aria-label="Close composer"><X size={22} /></button>
+        </header>
         <form onSubmit={submit}>
-          <div className="modal-author"><span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>Visible to signed-in Roavly members</small></span></div>
+          <div className="modal-author"><span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>Posting as you</small></span></div>
           {draft.inspiredByPostId && <div className="motivation-chain-banner"><Sparkles size={19} /><div><strong>You were motivated by another journey</strong><span>Sharing this will add your outdoor time to that post’s positive impact.</span></div></div>}
           <label className={`real-photo-picker ${photoPreview ? "has-photo" : ""} ${composerError && !photo ? "has-error" : ""}`}>
             {preparingPhoto ? (
@@ -1660,7 +1942,7 @@ function ComposerModal({
             ) : photoPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="photo-preview" src={photoPreview} alt="Selected journey upload preview" />
-            ) : <span><ImagePlus size={30} /><strong>Choose from your iPhone</strong><small>HEIC, HEIF, JPG, PNG or WebP · automatically optimised</small></span>}
+            ) : <span><ImagePlus size={30} /><strong>Add a photo</strong><small>Tap to add from your library · HEIC, JPG, PNG or WebP</small></span>}
             <input
               type="file"
               accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp"
@@ -1679,41 +1961,48 @@ function ComposerModal({
               <p className="photo-upload-ready"><Check size={16} /><span><strong>Photo ready</strong> You can keep filling in the post.</span></p>
             ) : null}
           </div>
-          <textarea value={draft.caption} onChange={(event) => update("caption", event.target.value)} placeholder="What made this adventure worth sharing?" maxLength={500} />
-          <div className="form-grid">
+          <label className="composer-caption">
+            <span>Caption</span>
+            <textarea value={draft.caption} onChange={(event) => update("caption", event.target.value)} placeholder="What made this adventure worth sharing?" maxLength={500} />
+          </label>
+          <div className="composer-essentials form-grid">
             <label><span>Activity</span><select value={draft.activityType} onChange={(event) => update("activityType", event.target.value)}><option>Hiking</option><option>Running</option><option>Rock climbing</option><option>Snowboarding</option><option>Cycling</option><option>Kayaking</option><option>Surfing</option><option>Walking</option><option>Other outdoor activity</option></select></label>
-            <label><span>Distance (km) <em>optional</em></span><input type="number" min="0" max="500" step="0.1" value={draft.distanceKm} onChange={(event) => update("distanceKm", event.target.value)} /></label>
             <label><span>Time outdoors (minutes)</span><input type="number" min="1" max="10080" required value={draft.durationMinutes} onChange={(event) => update("durationMinutes", event.target.value)} /><small>Added to your Time Outdoors tracker.</small></label>
-            <label><span>Elevation (metres) <em>optional</em></span><input type="number" min="0" max="10000" value={draft.elevationMetres} onChange={(event) => update("elevationMetres", event.target.value)} /></label>
           </div>
-          <label className="gpx-import"><Route size={18} /><span><strong>Import activity file</strong><small>Optional GPX import fills distance, time and elevation. Garmin exports work here without connecting your account.</small></span><em>Choose GPX</em><input type="file" accept=".gpx,application/gpx+xml" onChange={(event) => { void importGpx(event.target.files?.[0] ?? null); event.currentTarget.value = ""; }} /></label>
-          {gpxStatus && <p className="gpx-status">{gpxStatus}</p>}
-          <GoogleLocationPicker
-            value={draft.placeId ? {
-              location: draft.location,
-              latitude: draft.latitude,
-              longitude: draft.longitude,
-              placeId: draft.placeId,
-            } satisfies SelectedPlace : null}
-            onSelect={(place) => setDraft((current) => ({
-              ...current,
-              location: place?.location ?? "",
-              latitude: place?.latitude ?? "",
-              longitude: place?.longitude ?? "",
-              placeId: place?.placeId ?? "",
-            }))}
-          />
-          <section className="location-privacy-control">
-            <div><ShieldCheck size={20} /><span><strong>Protect the exact spot</strong><small>Approximate is the safest default for public discovery.</small></span></div>
-            <select value={draft.locationPrivacy} onChange={(event) => update("locationPrivacy", event.target.value)}>
-              <option value="approximate">Approximate area for everyone</option>
-              <option value="friends" disabled={ageBand !== "18+"}>Exact for friends, approximate for others</option>
-              <option value="exact" disabled={ageBand !== "18+"}>Exact pin for everyone</option>
-            </select>
-            {ageBand !== "18+" && <p>Precise sharing is only available to profiles confirmed as 18+. Your post will use an approximate area.</p>}
-          </section>
+          <div className="composer-location">
+            <GoogleLocationPicker
+              value={draft.placeId ? {
+                location: draft.location,
+                latitude: draft.latitude,
+                longitude: draft.longitude,
+                placeId: draft.placeId,
+              } satisfies SelectedPlace : null}
+              onSelect={(place) => setDraft((current) => ({
+                ...current,
+                location: place?.location ?? "",
+                latitude: place?.latitude ?? "",
+                longitude: place?.longitude ?? "",
+                placeId: place?.placeId ?? "",
+              }))}
+            />
+            <section className="location-privacy-control compact">
+              <div><ShieldCheck size={18} /><span><strong>Location privacy</strong><small>Approximate is the safest default.</small></span></div>
+              <select value={draft.locationPrivacy} onChange={(event) => update("locationPrivacy", event.target.value)}>
+                <option value="approximate">Approximate area for everyone</option>
+                <option value="friends" disabled={ageBand !== "18+"}>Exact for friends, approximate for others</option>
+                <option value="exact" disabled={ageBand !== "18+"}>Exact pin for everyone</option>
+              </select>
+              {ageBand !== "18+" && <p>Precise sharing is only available to profiles confirmed as 18+. Your post will use an approximate area.</p>}
+            </section>
+          </div>
           <details className="journey-details-form">
-            <summary><Info size={18} /> Add useful spot details <span>optional</span></summary>
+            <summary><Info size={18} /> More details <span>optional</span></summary>
+            <div className="form-grid">
+              <label><span>Distance (km) <em>optional</em></span><input type="number" min="0" max="500" step="0.1" value={draft.distanceKm} onChange={(event) => update("distanceKm", event.target.value)} /></label>
+              <label><span>Elevation (metres) <em>optional</em></span><input type="number" min="0" max="10000" value={draft.elevationMetres} onChange={(event) => update("elevationMetres", event.target.value)} /></label>
+            </div>
+            <label className="gpx-import"><Route size={18} /><span><strong>Import activity file</strong><small>Optional GPX fills distance, time and elevation.</small></span><em>Choose GPX</em><input type="file" accept=".gpx,application/gpx+xml" onChange={(event) => { void importGpx(event.target.files?.[0] ?? null); event.currentTarget.value = ""; }} /></label>
+            {gpxStatus && <p className="gpx-status">{gpxStatus}</p>}
             <div className="form-grid">
               <label><span>Difficulty</span><select value={draft.difficulty} onChange={(event) => update("difficulty", event.target.value)}><option>Easy</option><option>Moderate</option><option>Hard</option><option>Expert</option></select></label>
               <label><span>Conditions</span><input maxLength={200} value={draft.conditions} onChange={(event) => update("conditions", event.target.value)} placeholder="Dry, muddy, icy, exposed…" /></label>
@@ -1728,10 +2017,15 @@ function ComposerModal({
           </details>
           <div className="modal-footer">
             <span className="share-readiness">
-              <small>{draft.caption.length}/500 characters</small>
-              <strong>{publishing ? "Uploading your journey…" : missingRequirements.length ? `Still needed: ${missingRequirements.join(", ")}` : "Everything is ready to share"}</strong>
+              <small>{draft.caption.length}/500</small>
+              <strong>{readinessHint}</strong>
+              {!!missingRequirements.length && !publishing && !preparingPhoto && (
+                <span className="readiness-chips" aria-label="Still needed">
+                  {missingRequirements.map((item) => <em key={item}>{item.replace(/^a /, "")}</em>)}
+                </span>
+              )}
             </span>
-            <button className="publish-button" type="submit" disabled={!canShare}>{publishing ? "Uploading…" : preparingPhoto ? "Preparing photo…" : "Share journey"}</button>
+            <button className="publish-button" type="submit" disabled={!canShare}>{publishing ? "Uploading…" : preparingPhoto ? "Preparing photo…" : "Share"}</button>
           </div>
         </form>
       </section>
@@ -1743,10 +2037,19 @@ function ProfileModal({ profile, setProfile, saving, close, submit }: { profile:
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile({ ...profile, [key]: value });
   }
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") close();
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [close]);
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <section className="composer-modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><span className="eyebrow">Your Roavly identity</span><h2 id="profile-title">Edit profile</h2></div><button onClick={close} aria-label="Close profile editor"><X size={22} /></button></header>
+        <header className="profile-modal-header"><div><span className="eyebrow">Your Waymark identity</span><h2 id="profile-title">Edit profile</h2></div><button type="button" onClick={close} aria-label="Close profile editor"><X size={22} /></button></header>
         <form onSubmit={submit}>
           <div className="form-grid single">
             <label><span>Display name</span><input required value={profile.displayName} onChange={(event) => update("displayName", event.target.value)} /></label>
@@ -1765,7 +2068,7 @@ function ProfileModal({ profile, setProfile, saving, close, submit }: { profile:
             <label><span>Travel radius</span><input type="number" min={5} max={500} value={profile.travelRadiusKm} onChange={(event) => update("travelRadiusKm", Number(event.target.value))} /><small>Maximum kilometres you would usually travel.</small></label>
           </div>
           <label><span>Accessibility preferences <em>optional</em></span><textarea maxLength={240} value={profile.accessibilityNeeds} onChange={(event) => update("accessibilityNeeds", event.target.value)} placeholder="Share anything that would help others plan a suitable activity." /></label>
-          <div className="modal-footer"><a href="/signout-with-chatgpt?return_to=%2F"><LogOut size={16} /> Sign out</a><button className="publish-button" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button></div>
+          <div className="modal-footer"><a href="/api/auth/logout?return_to=%2F"><LogOut size={16} /> Sign out</a><button className="publish-button" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button></div>
         </form>
       </section>
     </div>
@@ -1785,14 +2088,14 @@ function OutdoorTracker({ minutes, compact = false }: { minutes: number; compact
         <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
         <div className="compact-achievement">
           <span><Award size={23} /></span>
-          <div><small>Next achievement</small><strong>{next?.name ?? "Roavly Legend"}</strong><em>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "Every milestone unlocked"}</em></div>
+          <div><small>Next achievement</small><strong>{next?.name ?? "Waymark Legend"}</strong><em>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "Every milestone unlocked"}</em></div>
         </div>
       </section>
     );
   }
   return (
     <section className="outdoor-tracker">
-      <div className="tracker-summary"><span className="tracker-icon large"><Timer size={29} /></span><div><span className="eyebrow">Your time outdoors</span><h2>{formatOutdoorTime(minutes)}</h2><p>Calculated from every journey you share.</p></div><div className="tracker-next"><small>Next achievement</small><strong>{next?.name ?? "All unlocked!"}</strong><span>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "You’re a Roavly Legend"}</span></div></div>
+      <div className="tracker-summary"><span className="tracker-icon large"><Timer size={29} /></span><div><span className="eyebrow">Your time outdoors</span><h2>{formatOutdoorTime(minutes)}</h2><p>Calculated from every journey you share.</p></div><div className="tracker-next"><small>Next achievement</small><strong>{next?.name ?? "All unlocked!"}</strong><span>{next ? `${formatOutdoorTime(next.minutes - minutes)} remaining` : "You’re a Waymark Legend"}</span></div></div>
       <div className="tracker-progress"><div><i style={{ width: `${progress}%` }} /></div><span>{progress}% to your next achievement</span></div>
       <div className="achievement-list">{outdoorAchievements.map((achievement) => {
         const achieved = minutes >= achievement.minutes;
@@ -1842,22 +2145,6 @@ function timeAgo(value: string) {
 
 function upsertPost(posts: SavedPost[], next: SavedPost) {
   return posts.map((post) => (post.id === next.id ? next : post));
-}
-
-function haversineKm(
-  first: { lat: number; lng: number },
-  second: { lat: number; lng: number },
-) {
-  const toRadians = (value: number) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const latitudeDelta = toRadians(second.lat - first.lat);
-  const longitudeDelta = toRadians(second.lng - first.lng);
-  const a =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(toRadians(first.lat)) *
-      Math.cos(toRadians(second.lat)) *
-      Math.sin(longitudeDelta / 2) ** 2;
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 async function createJourneyRecap(post: SavedPost) {
@@ -1926,13 +2213,13 @@ async function createJourneyRecap(post: SavedPost) {
     });
     context.fillStyle = "#a7f3d0";
     context.font = "700 34px Arial";
-    context.fillText("ROAVLY", 72, 1282);
+    context.fillText("WAYMARK", 72, 1282);
     context.fillStyle = "rgba(255,255,255,.7)";
     context.font = "24px Arial";
     context.fillText("Share the outdoors. Motivate your people.", 245, 1282);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-    return blob ? new File([blob], `roavly-${post.id.slice(0, 8)}-recap.png`, { type: "image/png" }) : null;
+    return blob ? new File([blob], `waymark-${post.id.slice(0, 8)}-recap.png`, { type: "image/png" }) : null;
   } catch {
     return null;
   }

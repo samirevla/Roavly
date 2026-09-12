@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await getChatGPTUser();
-  if (!user) return Response.json({ error: "Sign in to open Roavly rewards." }, { status: 401 });
+  if (!user) return Response.json({ error: "Sign in to open Waymark rewards." }, { status: 401 });
   const db = await getDb();
   const [entitlements, config, creator, creatorTips, balance, admin] = await Promise.all([
     getEntitlements(user.email),
