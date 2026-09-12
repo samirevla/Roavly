@@ -159,35 +159,54 @@ async function ensureProfile(user) {
 }
 
 async function createPost(user, overrides = {}) {
-  const form = new FormData();
-  form.set(
-    "photo",
-    new Blob([MINI_PNG], { type: "image/png" }),
-    "trial.png",
-  );
-  form.set("caption", overrides.caption || `Trial journey ${stamp}`);
-  form.set("activityType", overrides.activityType || "Hiking");
-  form.set("location", overrides.location || "Thousand Steps, Melbourne VIC");
-  form.set("latitude", String(overrides.latitude ?? -37.849));
-  form.set("longitude", String(overrides.longitude ?? 145.023));
-  form.set("placeId", overrides.placeId || "ChIJtrialplaceid0001");
-  form.set("locationPrivacy", overrides.locationPrivacy || "approximate");
-  form.set("distanceKm", String(overrides.distanceKm ?? 6.5));
-  form.set("durationMinutes", String(overrides.durationMinutes ?? 95));
-  form.set("elevationMetres", String(overrides.elevationMetres ?? 220));
-  form.set("difficulty", overrides.difficulty || "Moderate");
-  form.set("tips", overrides.tips || "Carry water");
-  form.set("conditions", overrides.conditions || "Clear");
-  form.set("parkingInfo", overrides.parkingInfo || "Street parking");
-  form.set("phoneSignal", overrides.phoneSignal || "Good");
-  form.set("toilets", overrides.toilets || "Trailhead");
-  form.set("accessibility", overrides.accessibility || "Steep stairs");
-  form.set("dogFriendly", overrides.dogFriendly || "No");
-  form.set("bestTime", overrides.bestTime || "Morning");
-  if (overrides.inspiredByPostId) form.set("inspiredByPostId", overrides.inspiredByPostId);
+  const postId = crypto.randomUUID();
+  const photo = new Blob([MINI_PNG], { type: "image/png" });
+  const sign = await api(user.jar, "/api/uploads/sign", {
+    method: "POST",
+    json: {
+      purpose: "post_photo",
+      contentType: "image/png",
+      byteSize: photo.size,
+      postId,
+    },
+  });
+  assert.equal(sign.status, 200, JSON.stringify(sign.body));
+  const put = await api(user.jar, sign.body.uploadUrl, {
+    method: "PUT",
+    headers: {
+      "content-type": "image/png",
+      "content-length": String(photo.size),
+    },
+    body: photo,
+  });
+  assert.equal(put.status, 201, JSON.stringify(put.body));
+  const payload = {
+    postId,
+    imageKey: sign.body.key,
+    caption: overrides.caption || `Trial journey ${stamp}`,
+    activityType: overrides.activityType || "Hiking",
+    location: overrides.location || "Thousand Steps, Melbourne VIC",
+    latitude: overrides.latitude ?? -37.849,
+    longitude: overrides.longitude ?? 145.023,
+    placeId: overrides.placeId || "ChIJtrialplaceid0001",
+    locationPrivacy: overrides.locationPrivacy || "approximate",
+    distanceKm: overrides.distanceKm ?? 6.5,
+    durationMinutes: overrides.durationMinutes ?? 95,
+    elevationMetres: overrides.elevationMetres ?? 220,
+    difficulty: overrides.difficulty || "Moderate",
+    tips: overrides.tips || "Carry water",
+    conditions: overrides.conditions || "Clear",
+    parkingInfo: overrides.parkingInfo || "Street parking",
+    phoneSignal: overrides.phoneSignal || "Good",
+    toilets: overrides.toilets || "Trailhead",
+    accessibility: overrides.accessibility || "Steep stairs",
+    dogFriendly: overrides.dogFriendly || "No",
+    bestTime: overrides.bestTime || "Morning",
+  };
+  if (overrides.inspiredByPostId) payload.inspiredByPostId = overrides.inspiredByPostId;
   const { status, body } = await api(user.jar, "/api/posts", {
     method: "POST",
-    body: form,
+    json: payload,
   });
   assert.equal(status, 201, JSON.stringify(body));
   assert.ok(body.post?.id || body.id, JSON.stringify(body));
@@ -523,30 +542,53 @@ scenario(40, "User C me returns distinct username", async () => {
 // 041–055: Posts / journeys
 // ---------------------------------------------------------------------------
 scenario(41, "Create journey without photo fails", async () => {
-  const form = new FormData();
-  form.set("caption", "No photo");
-  form.set("durationMinutes", "30");
-  form.set("location", "Somewhere");
-  form.set("placeId", "x");
-  form.set("latitude", "-37");
-  form.set("longitude", "145");
   const { status, body } = await api(users.a.jar, "/api/posts", {
     method: "POST",
-    body: form,
+    json: {
+      postId: crypto.randomUUID(),
+      caption: "No photo",
+      durationMinutes: 30,
+      location: "Somewhere",
+      placeId: "x",
+      latitude: -37,
+      longitude: 145,
+    },
   });
-  assert.equal(status, 400);
-  assert.match(String(body.error || ""), /photo/i);
+  assert.ok(status === 400 || status === 415, String(status));
+  assert.match(String(body.error || ""), /photo|imageKey|upload/i);
 });
 
 scenario(42, "Create journey without placeId fails", async () => {
-  const form = new FormData();
-  form.set("photo", new Blob([MINI_PNG], { type: "image/png" }), "t.png");
-  form.set("caption", "Missing place");
-  form.set("durationMinutes", "30");
-  form.set("location", "Somewhere");
-  form.set("latitude", "-37");
-  form.set("longitude", "145");
-  const { status } = await api(users.a.jar, "/api/posts", { method: "POST", body: form });
+  const postId = crypto.randomUUID();
+  const photo = new Blob([MINI_PNG], { type: "image/png" });
+  const sign = await api(users.a.jar, "/api/uploads/sign", {
+    method: "POST",
+    json: {
+      purpose: "post_photo",
+      contentType: "image/png",
+      byteSize: photo.size,
+      postId,
+    },
+  });
+  assert.equal(sign.status, 200, JSON.stringify(sign.body));
+  const put = await api(users.a.jar, sign.body.uploadUrl, {
+    method: "PUT",
+    headers: { "content-type": "image/png", "content-length": String(photo.size) },
+    body: photo,
+  });
+  assert.equal(put.status, 201, JSON.stringify(put.body));
+  const { status } = await api(users.a.jar, "/api/posts", {
+    method: "POST",
+    json: {
+      postId,
+      imageKey: sign.body.key,
+      caption: "Missing place",
+      durationMinutes: 30,
+      location: "Somewhere",
+      latitude: -37,
+      longitude: 145,
+    },
+  });
   assert.equal(status, 400);
 });
 
@@ -1080,15 +1122,37 @@ scenario(98, "Invalid JSON body on login does not 500", async () => {
 });
 
 scenario(99, "Very long caption rejected", async () => {
-  const form = new FormData();
-  form.set("photo", new Blob([MINI_PNG], { type: "image/png" }), "t.png");
-  form.set("caption", "c".repeat(600));
-  form.set("durationMinutes", "30");
-  form.set("location", "Somewhere nice");
-  form.set("placeId", "ChIJtoolong");
-  form.set("latitude", "-37.8");
-  form.set("longitude", "145.0");
-  const { status } = await api(users.a.jar, "/api/posts", { method: "POST", body: form });
+  const postId = crypto.randomUUID();
+  const photo = new Blob([MINI_PNG], { type: "image/png" });
+  const sign = await api(users.a.jar, "/api/uploads/sign", {
+    method: "POST",
+    json: {
+      purpose: "post_photo",
+      contentType: "image/png",
+      byteSize: photo.size,
+      postId,
+    },
+  });
+  assert.equal(sign.status, 200, JSON.stringify(sign.body));
+  const put = await api(users.a.jar, sign.body.uploadUrl, {
+    method: "PUT",
+    headers: { "content-type": "image/png", "content-length": String(photo.size) },
+    body: photo,
+  });
+  assert.equal(put.status, 201, JSON.stringify(put.body));
+  const { status } = await api(users.a.jar, "/api/posts", {
+    method: "POST",
+    json: {
+      postId,
+      imageKey: sign.body.key,
+      caption: "c".repeat(600),
+      durationMinutes: 30,
+      location: "Somewhere nice",
+      placeId: "ChIJtoolong",
+      latitude: -37.8,
+      longitude: 145.0,
+    },
+  });
   assert.equal(status, 400);
 });
 

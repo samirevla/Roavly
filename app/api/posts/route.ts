@@ -1,13 +1,12 @@
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
-import { getMediaBucket, mediaUnavailableResponse } from "../../media-storage";
 import { isApprovedEncouragement } from "../../positive-comments";
 import {
-  friendlyUploadError,
-  photoContentType,
-  photoExtension,
-  validatePhoto,
-} from "../../photo-upload";
+  assertMediaObjectExists,
+  getMediaBucket,
+  mediaUnavailableResponse,
+} from "../../media-storage";
+import { friendlyUploadError } from "../../photo-upload";
 import { enforceRateLimit, RATE_LIMITS } from "../../rate-limit";
 import { getDb } from "../../../db";
 import {
@@ -177,51 +176,66 @@ export async function POST(request: Request) {
   const limited = enforceRateLimit(`posts:${user.email}`, RATE_LIMITS.posts);
   if (limited) return limited;
 
+  const contentTypeHeader = (request.headers.get("content-type") || "").toLowerCase();
+  if (!contentTypeHeader.includes("application/json")) {
+    return Response.json(
+      {
+        error:
+          "Upload the photo first via /api/uploads/sign + PUT, then POST JSON metadata to create the journey.",
+      },
+      { status: 415 },
+    );
+  }
+
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
   let imageKey = "";
   try {
-    const form = await request.formData();
-    const photo = form.get("photo");
-    const caption = String(form.get("caption") || "").trim();
-    const activityType = String(form.get("activityType") || "Outdoor adventure").trim().slice(0, 50);
-    const rawLocation = String(form.get("location") || "").trim();
-    const location = rawLocation.slice(0, 160);
-    const latitude = Number(form.get("latitude"));
-    const longitude = Number(form.get("longitude"));
-    const placeId = String(form.get("placeId") || "").trim().slice(0, 255);
-    const requestedLocationPrivacy = ["approximate", "friends", "exact"].includes(
-      String(form.get("locationPrivacy")),
-    )
-      ? String(form.get("locationPrivacy"))
-      : "approximate";
-    const distanceKm = Math.max(0, Math.min(500, Number(form.get("distanceKm")) || 0));
-    const durationMinutes = Math.max(1, Math.min(10080, Number(form.get("durationMinutes")) || 0));
-    const elevationMetres = Math.max(0, Math.min(10000, Number(form.get("elevationMetres")) || 0));
-    const difficulty = String(form.get("difficulty") || "Moderate").trim().slice(0, 40);
-    const tips = String(form.get("tips") || "").trim().slice(0, 400);
-    const conditions = String(form.get("conditions") || "").trim().slice(0, 200);
-    const parkingInfo = String(form.get("parkingInfo") || "").trim().slice(0, 200);
-    const phoneSignal = String(form.get("phoneSignal") || "Unknown").trim().slice(0, 30);
-    const toilets = String(form.get("toilets") || "Unknown").trim().slice(0, 30);
-    const accessibility = String(form.get("accessibility") || "").trim().slice(0, 240);
-    const dogFriendly = String(form.get("dogFriendly") || "Unknown").trim().slice(0, 30);
-    const bestTime = String(form.get("bestTime") || "").trim().slice(0, 120);
-    const inspiredByPostId = String(form.get("inspiredByPostId") || "").trim().slice(0, 80) || null;
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body) return Response.json({ error: "Expected JSON body." }, { status: 400 });
 
-    if (
-      !photo ||
-      typeof photo === "string" ||
-      typeof photo.arrayBuffer !== "function"
-    ) {
-      return Response.json({ error: "Choose a photo for your journey." }, { status: 400 });
+    const id = String(body.postId || "").trim();
+    imageKey = String(body.imageKey || "").trim();
+    const caption = String(body.caption || "").trim();
+    const activityType = String(body.activityType || "Outdoor adventure").trim().slice(0, 50);
+    const rawLocation = String(body.location || "").trim();
+    const location = rawLocation.slice(0, 160);
+    const latitude = Number(body.latitude);
+    const longitude = Number(body.longitude);
+    const placeId = String(body.placeId || "").trim().slice(0, 255);
+    const requestedLocationPrivacy = ["approximate", "friends", "exact"].includes(
+      String(body.locationPrivacy),
+    )
+      ? String(body.locationPrivacy)
+      : "approximate";
+    const distanceKm = Math.max(0, Math.min(500, Number(body.distanceKm) || 0));
+    const durationMinutes = Math.max(1, Math.min(10080, Number(body.durationMinutes) || 0));
+    const elevationMetres = Math.max(0, Math.min(10000, Number(body.elevationMetres) || 0));
+    const difficulty = String(body.difficulty || "Moderate").trim().slice(0, 40);
+    const tips = String(body.tips || "").trim().slice(0, 400);
+    const conditions = String(body.conditions || "").trim().slice(0, 200);
+    const parkingInfo = String(body.parkingInfo || "").trim().slice(0, 200);
+    const phoneSignal = String(body.phoneSignal || "Unknown").trim().slice(0, 30);
+    const toilets = String(body.toilets || "Unknown").trim().slice(0, 30);
+    const accessibility = String(body.accessibility || "").trim().slice(0, 240);
+    const dogFriendly = String(body.dogFriendly || "Unknown").trim().slice(0, 30);
+    const bestTime = String(body.bestTime || "").trim().slice(0, 120);
+    const inspiredByPostId = String(body.inspiredByPostId || "").trim().slice(0, 80) || null;
+
+    if (!UUID_RE.test(id)) {
+      return Response.json({ error: "postId must be a UUID." }, { status: 400 });
     }
-    const photoError = validatePhoto(photo);
-    if (photoError) {
-      return Response.json({ error: photoError }, { status: 400 });
+    if (!imageKey || !new RegExp(`^posts/${id}\\.(jpg|jpeg|png|webp)$`, "i").test(imageKey)) {
+      return Response.json(
+        { error: "imageKey must match posts/{postId}.jpg|png|webp after upload." },
+        { status: 400 },
+      );
     }
     if (!caption || caption.length > 500) {
       return Response.json({ error: "Write a caption between 1 and 500 characters." }, { status: 400 });
     }
-    if (!Number(form.get("durationMinutes")) || Number(form.get("durationMinutes")) < 1) {
+    if (!Number(body.durationMinutes) || Number(body.durationMinutes) < 1) {
       return Response.json({ error: "Add how many minutes you spent outdoors." }, { status: 400 });
     }
     if (!rawLocation || rawLocation.length > 160) {
@@ -237,14 +251,30 @@ export async function POST(request: Request) {
       return Response.json({ error: "The selected longitude is invalid." }, { status: 400 });
     }
 
-    const id = crypto.randomUUID();
-    const contentType = photoContentType(photo)!;
-    imageKey = `posts/${id}.${photoExtension(contentType)}`;
-    const bucket = await getMediaBucket();
-    await bucket.put(imageKey, await photo.arrayBuffer(), {
-      httpMetadata: { contentType },
-      customMetadata: { owner: user.email, postId: id },
-    });
+    let bucket;
+    try {
+      bucket = await getMediaBucket();
+    } catch (error) {
+      const unavailable = mediaUnavailableResponse(error);
+      if (unavailable) return unavailable;
+      throw error;
+    }
+
+    let mediaMeta;
+    try {
+      mediaMeta = await assertMediaObjectExists(bucket, imageKey);
+    } catch {
+      return Response.json(
+        { error: "Choose a photo for your journey." },
+        { status: 400 },
+      );
+    }
+    if (mediaMeta.customMetadata?.owner && mediaMeta.customMetadata.owner !== user.email) {
+      return Response.json({ error: "Photo object owner mismatch." }, { status: 403 });
+    }
+    if (mediaMeta.customMetadata?.postId && mediaMeta.customMetadata.postId !== id) {
+      return Response.json({ error: "Photo object postId mismatch." }, { status: 400 });
+    }
 
     const db = await getDb();
     const [profile] = await db.select().from(profiles).where(eq(profiles.email, user.email)).limit(1);

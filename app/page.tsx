@@ -456,13 +456,54 @@ export default function HomePage() {
     setPublishing(true);
     setComposerError("");
     try {
-      const form = new FormData();
-      Object.entries(draft).forEach(([key, value]) => form.append(key, value));
-      form.append("photo", photo);
+      const postId = crypto.randomUUID();
+      const signResponse = await fetch("/api/uploads/sign", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose: "post_photo",
+          contentType: photo.type || "image/jpeg",
+          byteSize: photo.size,
+          postId,
+        }),
+      });
+      const signed = (await signResponse.json()) as {
+        error?: string;
+        key?: string;
+        uploadUrl?: string;
+        contentType?: string;
+      };
+      if (!signResponse.ok || !signed.uploadUrl || !signed.key || !signed.contentType) {
+        throw new Error(signed.error || "Could not start the photo upload.");
+      }
+
+      const putResponse = await fetch(signed.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "content-type": signed.contentType,
+          "X-Roavly-Photo-Bytes": String(photo.size),
+        },
+        body: photo,
+      });
+      const putPayload = (await putResponse.json().catch(() => ({}))) as {
+        error?: string;
+        key?: string;
+      };
+      if (!putResponse.ok) {
+        throw new Error(putPayload.error || "Photo upload failed.");
+      }
+
       const response = await fetch("/api/posts", {
         method: "POST",
-        body: form,
-        headers: { "X-Roavly-Photo-Bytes": String(photo.size) },
+        headers: {
+          "content-type": "application/json",
+          "X-Roavly-Photo-Bytes": String(photo.size),
+        },
+        body: JSON.stringify({
+          postId,
+          imageKey: signed.key,
+          ...draft,
+        }),
       });
       const payload = (await response.json()) as { post?: SavedPost; error?: string };
       if (!response.ok || !payload.post) throw new Error(payload.error || "Your journey could not be shared.");

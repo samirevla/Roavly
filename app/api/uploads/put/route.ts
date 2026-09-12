@@ -52,9 +52,17 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Empty upload body." }, { status: 400 });
   }
 
-  const tipIdMatch = payload.key.match(/^tips\/([^/]+)\//);
-  const tipId = tipIdMatch?.[1] || "";
-  const access = payload.purpose === "tip_preview" ? "preview" : "paid";
+  let customMetadata: Record<string, string>;
+  if (payload.purpose === "post_photo") {
+    const postIdMatch = payload.key.match(/^posts\/([^/.]+)\./);
+    const postId = postIdMatch?.[1] || "";
+    customMetadata = { owner: user.email, postId, access: "journey" };
+  } else {
+    const tipIdMatch = payload.key.match(/^tips\/([^/]+)\//);
+    const tipId = tipIdMatch?.[1] || "";
+    const access = payload.purpose === "tip_preview" ? "preview" : "paid";
+    customMetadata = { owner: user.email, tipId, access };
+  }
 
   let bucket;
   try {
@@ -68,7 +76,7 @@ export async function PUT(request: Request) {
   // Stream the request body into R2 — never buffer the whole file in Worker memory.
   await bucket.put(payload.key, request.body, {
     httpMetadata: { contentType: payload.contentType },
-    customMetadata: { owner: user.email, tipId, access },
+    customMetadata,
   });
 
   return Response.json({ key: payload.key }, { status: 201 });

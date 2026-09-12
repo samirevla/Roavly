@@ -144,17 +144,37 @@ async function jsonFetch(worker, env, pathname, init = {}) {
 test("standalone email auth creates accounts, sessions and clears logout", async () => {
   const database = await migratedDatabase();
   const worker = await builtWorker();
+  const objects = new Map();
   const env = {
     DB: new TestD1(database),
     BUCKET: {
-      get: async () => null,
-      put: async () => {},
-      delete: async () => {},
+      async put(key, _value, options = {}) {
+        objects.set(key, {
+          httpMetadata: options.httpMetadata || {},
+          customMetadata: options.customMetadata || {},
+        });
+      },
+      async head(key) {
+        return objects.get(key) || null;
+      },
+      async get(key) {
+        const meta = objects.get(key);
+        if (!meta) return null;
+        return {
+          ...meta,
+          body: { cancel: async () => {} },
+        };
+      },
+      async delete(key) {
+        objects.delete(key);
+      },
     },
     ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
+    UPLOAD_SIGNING_SECRET: "test-upload-signing-secret-standalone-auth",
   };
   globalThis.__ROAVLY_TEST_DB__ = env.DB;
   globalThis.__ROAVLY_TEST_BUCKET__ = env.BUCKET;
+  globalThis.__ROAVLY_TEST_UPLOAD_SECRET__ = env.UPLOAD_SIGNING_SECRET;
   globalThis.__ROAVLY_TEST_ENV__ = { ROAVLY_ALLOW_SITES_HEADERS: "0" };
 
   const signup = await jsonFetch(worker, env, "/api/auth/signup", {
@@ -241,32 +261,55 @@ test("standalone email auth creates accounts, sessions and clears logout", async
     0x00, 0x00, 0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00,
     0x7f, 0xff, 0xd9,
   ]);
-  const form = new FormData();
-  form.set("caption", "Standalone auth hike");
-  form.set("activityType", "Hiking");
-  form.set("location", "Grampians, Victoria");
-  form.set("placeId", "test-place-standalone-auth");
-  form.set("latitude", "-37.140");
-  form.set("longitude", "142.520");
-  form.set("durationMinutes", "45");
-  form.set("difficulty", "Moderate");
-  form.set(
-    "photo",
-    new File([jpeg], "hike.jpg", { type: "image/jpeg" }),
-  );
-  const createPost = await worker.fetch(
-    new Request("http://localhost/api/posts", {
-      method: "POST",
-      headers: { cookie: `roavly_session=${loginCookie}` },
-      body: form,
+  const postId = crypto.randomUUID();
+  const sign = await jsonFetch(worker, env, "/api/uploads/sign", {
+    method: "POST",
+    headers: { cookie: `roavly_session=${loginCookie}` },
+    body: JSON.stringify({
+      purpose: "post_photo",
+      contentType: "image/jpeg",
+      byteSize: jpeg.byteLength,
+      postId,
+    }),
+  });
+  assert.equal(sign.response.status, 200, JSON.stringify(sign.body));
+  assert.equal(sign.body.key, `posts/${postId}.jpg`);
+
+  const put = await worker.fetch(
+    new Request(`http://localhost${sign.body.uploadUrl}`, {
+      method: "PUT",
+      headers: {
+        cookie: `roavly_session=${loginCookie}`,
+        "content-type": "image/jpeg",
+        "content-length": String(jpeg.byteLength),
+      },
+      body: jpeg,
     }),
     env,
     runtimeContext(),
   );
+  assert.equal(put.status, 201, await put.clone().text());
+
+  const createPost = await jsonFetch(worker, env, "/api/posts", {
+    method: "POST",
+    headers: { cookie: `roavly_session=${loginCookie}` },
+    body: JSON.stringify({
+      postId,
+      imageKey: sign.body.key,
+      caption: "Standalone auth hike",
+      activityType: "Hiking",
+      location: "Grampians, Victoria",
+      placeId: "test-place-standalone-auth",
+      latitude: -37.14,
+      longitude: 142.52,
+      durationMinutes: 45,
+      difficulty: "Moderate",
+    }),
+  });
   assert.equal(
-    createPost.status,
+    createPost.response.status,
     201,
-    await createPost.clone().text(),
+    JSON.stringify(createPost.body),
   );
 
   const logout = await jsonFetch(worker, env, "/api/auth/logout", {

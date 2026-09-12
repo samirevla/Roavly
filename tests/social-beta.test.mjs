@@ -93,7 +93,11 @@ test("real photo uploads are required and constrained on both client and server"
   assert.match(uploadImplementation, /image\/jpeg/);
   assert.match(uploadImplementation, /image\/png/);
   assert.match(uploadImplementation, /image\/webp/);
-  assert.match(postsApi, /photoExtension\(contentType\)/);
+  assert.doesNotMatch(postsApi, /arrayBuffer\s*\(/);
+  assert.match(postsApi, /assertMediaObjectExists/);
+  assert.match(postsApi, /imageKey must match posts/);
+  assert.match(page, /\/api\/uploads\/sign/);
+  assert.match(page, /post_photo/);
   assert.match(page, /Upload needs attention/);
   assert.match(page, /Still needed/);
   assert.match(clientPhoto, /api\/client-diagnostics/);

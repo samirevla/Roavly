@@ -1,6 +1,6 @@
 /** Signed same-origin upload tokens for streaming R2 PUTs (HMAC-SHA256). */
 
-export type UploadPurpose = "tip_media" | "tip_preview";
+export type UploadPurpose = "tip_media" | "tip_preview" | "post_photo";
 
 export type UploadTokenPayload = {
   key: string;
