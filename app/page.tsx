@@ -131,6 +131,8 @@ type SavedPost = {
   inspiredByPostId: string | null;
   imageKey: string;
   imageUrl: string;
+  mediaType?: "image" | "video";
+  mediaUrl?: string;
   createdAt: string;
   motivationCount: number;
   viewerMotivated: boolean;
@@ -252,7 +254,7 @@ export default function HomePage() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [messageTarget, setMessageTarget] = useState<string | null>(null);
   const [conversationTarget, setConversationTarget] = useState<string | null>(null);
-  const [discoverStart, setDiscoverStart] = useState<"Map" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips">("Map");
+  const [discoverStart, setDiscoverStart] = useState<"Map" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips" | "Gear">("Map");
 
   useEffect(() => {
     let active = true;
@@ -429,11 +431,22 @@ export default function HomePage() {
     if (!file) return;
     setPreparingPhoto(true);
     try {
-      const prepared = await preparePhotoForUpload(file);
-      if (photoReadId.current !== readId) return;
-      setPhoto(prepared.file);
-      setPhotoPreview(prepared.preview);
-      if (prepared.optimised) showToast("Photo optimised and ready to share.");
+      const isVideo = file.type.startsWith("video/") || /\.(mp4|mov|webm|quicktime)$/i.test(file.name);
+      if (isVideo) {
+        const allowed = ["video/mp4", "video/quicktime", "video/webm"].includes(file.type) || /\.(mp4|mov|webm)$/i.test(file.name);
+        if (!allowed) throw new Error("Use MP4, MOV or WebM for journey clips.");
+        if (file.size > 100 * 1024 * 1024) throw new Error("Video clips must be under 100 MB.");
+        if (photoReadId.current !== readId) return;
+        setPhoto(file);
+        setPhotoPreview(URL.createObjectURL(file));
+        showToast("Video clip ready to share.");
+      } else {
+        const prepared = await preparePhotoForUpload(file);
+        if (photoReadId.current !== readId) return;
+        setPhoto(prepared.file);
+        setPhotoPreview(prepared.preview);
+        if (prepared.optimised) showToast("Photo optimised and ready to share.");
+      }
     } catch (error) {
       if (photoReadId.current !== readId) return;
       const message = friendlyUploadError(error);
@@ -465,12 +478,16 @@ export default function HomePage() {
     setComposerError("");
     try {
       const postId = crypto.randomUUID();
+      const isVideo = photo.type.startsWith("video/");
+      const contentType = isVideo
+        ? (photo.type || "video/mp4")
+        : (photo.type || "image/jpeg");
       const signResponse = await fetch("/api/uploads/sign", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          purpose: "post_photo",
-          contentType: photo.type || "image/jpeg",
+          purpose: isVideo ? "post_media" : "post_photo",
+          contentType,
           byteSize: photo.size,
           postId,
         }),
@@ -510,6 +527,7 @@ export default function HomePage() {
         body: JSON.stringify({
           postId,
           imageKey: signed.key,
+          mediaType: isVideo ? "video" : "image",
           ...draft,
         }),
       });
@@ -1281,25 +1299,31 @@ function JourneyPost({
         </button>
       </header>
       <div
-        className="post-media"
-        role="button"
-        tabIndex={0}
-        aria-label={`Open and zoom ${post.activityType} photo from ${post.location || "this journey"}`}
-        onClick={() => setImageOpen(true)}
-        onKeyDown={(event) => {
+        className={`post-media ${post.mediaType === "video" ? "is-video" : ""}`}
+        role={post.mediaType === "video" ? "group" : "button"}
+        tabIndex={post.mediaType === "video" ? undefined : 0}
+        aria-label={post.mediaType === "video"
+          ? `${post.activityType} journey clip from ${post.location || "this journey"}`
+          : `Open and zoom ${post.activityType} photo from ${post.location || "this journey"}`}
+        onClick={post.mediaType === "video" ? undefined : () => setImageOpen(true)}
+        onKeyDown={post.mediaType === "video" ? undefined : (event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             setImageOpen(true);
           }
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="post-image" src={post.imageUrl} alt={`${post.activityType} journey shared by ${post.authorName}`} />
+        {post.mediaType === "video" ? (
+          <video className="post-image post-video" src={post.mediaUrl || post.imageUrl} controls playsInline preload="metadata" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="post-image" src={post.imageUrl} alt={`${post.activityType} journey shared by ${post.authorName}`} />
+        )}
         <div className="post-image-overlay">
           <span>{post.activityType}</span>
           {post.location && <strong><MapPin size={14} /> {post.location}</strong>}
         </div>
-        <span className="post-zoom-hint" aria-hidden="true"><Maximize2 size={15} /> View</span>
+        {post.mediaType !== "video" && <span className="post-zoom-hint" aria-hidden="true"><Maximize2 size={15} /> View</span>}
       </div>
       <div className="post-social-counts">
         <span>{post.motivationCount ? `${post.motivationCount} ${post.motivationCount === 1 ? "person" : "people"} motivated` : "Be the first to motivate them"}</span>
@@ -1866,7 +1890,7 @@ function ComposerModal({
       : !missingRequirements.length
         ? "Ready to share"
         : !photo
-          ? "Add a photo to continue"
+          ? "Add a photo or video clip to continue"
           : !draft.caption.trim()
             ? "Add a caption to continue"
             : !Number(draft.durationMinutes)
@@ -1889,25 +1913,29 @@ function ComposerModal({
             {preparingPhoto ? (
               <span className="photo-preparing"><LoaderCircle className="spin" size={30} /><strong>Preparing your photo…</strong><small>iPhone photos are converted and resized automatically.</small></span>
             ) : photoPreview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="photo-preview" src={photoPreview} alt="Selected journey upload preview" />
-            ) : <span><ImagePlus size={30} /><strong>Add a photo</strong><small>Tap to add from your library · HEIC, JPG, PNG or WebP</small></span>}
+              photo?.type.startsWith("video/") ? (
+                <video className="photo-preview" src={photoPreview} controls playsInline muted />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="photo-preview" src={photoPreview} alt="Selected journey upload preview" />
+              )
+            ) : <span><ImagePlus size={30} /><strong>Add a photo or clip</strong><small>Photos · HEIC/JPG/PNG/WebP · or one MP4/MOV/WebM video</small></span>}
             <input
               type="file"
-              accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp"
+              accept="image/*,video/mp4,video/quicktime,video/webm,.heic,.heif,.jpg,.jpeg,.png,.webp,.mp4,.mov,.webm"
               disabled={preparingPhoto}
               onChange={(event) => {
                 void choosePhoto(event.target.files?.[0] ?? null);
                 event.currentTarget.value = "";
               }}
             />
-            {photoPreview && !preparingPhoto && <em>Change photo</em>}
+            {photoPreview && !preparingPhoto && <em>Change media</em>}
           </label>
           <div className="photo-upload-status" aria-live="polite">
             {composerError ? (
               <p className="photo-upload-error" role="alert"><strong>Upload needs attention</strong><span>{composerError}</span></p>
             ) : photo && !preparingPhoto ? (
-              <p className="photo-upload-ready"><Check size={16} /><span><strong>Photo ready</strong> You can keep filling in the post.</span></p>
+              <p className="photo-upload-ready"><Check size={16} /><span><strong>{photo.type.startsWith("video/") ? "Video ready" : "Photo ready"}</strong> You can keep filling in the post.</span></p>
             ) : null}
           </div>
           <label className="composer-caption">

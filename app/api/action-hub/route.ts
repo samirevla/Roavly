@@ -224,7 +224,7 @@ export async function GET() {
       isHost: plan.hostEmail === user.email,
       viewerStatus: plan.hostEmail === user.email ? "host" : viewerMembership?.status || "none",
       attendeeCount: members.filter((member) => member.status === "accepted").length,
-      members: plan.hostEmail === user.email ? members : [],
+      members: plan.hostEmail === user.email ? members : members.filter((member) => member.status === "accepted"),
       latitude: plan.hostEmail === user.email || viewerMembership?.status === "accepted" ? plan.latitude : null,
       longitude: plan.hostEmail === user.email || viewerMembership?.status === "accepted" ? plan.longitude : null,
       conversationId: chatAvailable && canOpenChat ? journeyChat?.id || null : null,
