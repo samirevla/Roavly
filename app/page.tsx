@@ -88,6 +88,8 @@ type Profile = {
   travelRadiusKm: number;
   groupStyle: string;
   accessibilityNeeds: string;
+  avatarKey?: string;
+  avatarUrl?: string | null;
 };
 
 type Comment = {
@@ -97,6 +99,7 @@ type Comment = {
   createdAt: string;
   authorName: string;
   authorUsername: string;
+  authorAvatarUrl?: string | null;
   canDelete: boolean;
 };
 
@@ -104,6 +107,7 @@ type SavedPost = {
   id: string;
   authorName: string;
   authorUsername: string;
+  authorAvatarUrl?: string | null;
   caption: string;
   activityType: string;
   location: string;
@@ -152,6 +156,8 @@ type Person = {
   travelRadiusKm: number;
   groupStyle: string;
   accessibilityNeeds: string;
+  avatarKey?: string;
+  avatarUrl?: string | null;
   relationship: Relationship;
 };
 
@@ -347,6 +353,8 @@ export default function HomePage() {
   const profileName = profile?.displayName || viewer?.displayName || "Waymark member";
   const profileUsername = profile?.username ? `@${profile.username}` : "";
   const initial = profileName.charAt(0).toUpperCase() || "R";
+  const profileAvatarUrl =
+    profile?.avatarUrl || (profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null);
   const firstName = profileName.split(" ")[0] || "adventurer";
 
   function navigatePrimary(nav: NavKey, discover?: "Map" | "Plans") {
@@ -778,7 +786,7 @@ export default function HomePage() {
           <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
           <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications" className="header-notifications"><Bell size={20} />{incomingRequests.length > 0 && <i />}</button>
           <button onClick={() => setActiveNav("Messages")} aria-label="Messages" className="header-notifications"><MessageCircle size={20} />{unreadMessages > 0 && <i />}</button>
-          <button className="desktop-avatar-button" onClick={() => setActiveNav("Profile")} aria-label="Open profile"><span className="avatar">{initial}</span></button>
+          <button className="desktop-avatar-button" onClick={() => setActiveNav("Profile")} aria-label="Open profile"><Avatar name={profileName} imageUrl={profileAvatarUrl} /></button>
         </div>
       </header>
       <aside className="side-nav" aria-label="Primary navigation">
@@ -798,7 +806,7 @@ export default function HomePage() {
         <div className="safety-note"><ShieldCheck size={20} /><div><strong>Positive by design</strong><span>No dislikes. Encourage, support and inspire.</span></div></div>
         <div className="side-trail-mark" aria-hidden="true"><Mountain size={74} strokeWidth={1.25} /></div>
         <button className="profile-switcher" onClick={() => setActiveNav("Profile")}>
-          <span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>{profileUsername}</small></span><Menu size={18} />
+          <Avatar name={profileName} imageUrl={profileAvatarUrl} /><span><strong>{profileName}</strong><small>{profileUsername}</small></span><Menu size={18} />
         </button>
       </aside>
 
@@ -831,7 +839,7 @@ export default function HomePage() {
             <button onClick={openActivityMap} aria-label="Search journeys"><Search size={21} /></button>
             <button onClick={() => setActiveNav("Friends")} aria-label="Open friends and notifications" className="header-notifications"><Bell size={21} />{incomingRequests.length > 0 && <i />}</button>
             <button onClick={() => setActiveNav("Messages")} aria-label="Open messages" className="header-notifications"><MessageCircle size={21} />{unreadMessages > 0 && <i />}</button>
-            <button onClick={() => setActiveNav("Profile")} aria-label="Open profile"><span className="avatar">{initial}</span></button>
+            <button onClick={() => setActiveNav("Profile")} aria-label="Open profile"><Avatar name={profileName} imageUrl={profileAvatarUrl} /></button>
           </div>
         </div>
 
@@ -842,6 +850,7 @@ export default function HomePage() {
             setFeedMode={setFeedMode}
             initial={initial}
             profileName={profileName}
+            profileAvatarUrl={profileAvatarUrl}
             openComposer={() => setComposerOpen(true)}
             toggleMotivation={toggleMotivation}
             addComment={addComment}
@@ -950,7 +959,7 @@ export default function HomePage() {
         <section className="rail-card">
           <div className="rail-title"><h2>Your friends</h2><button onClick={() => setActiveNav("Friends")}>View all</button></div>
           {friends.length ? (
-            <div className="friend-mini-list">{friends.slice(0, 4).map((friend) => <button key={friend.username} onClick={() => openMessage(friend.username)}><Avatar name={friend.displayName} /><span><strong>{friend.displayName}</strong><small>Message @{friend.username}</small></span></button>)}</div>
+            <div className="friend-mini-list">{friends.slice(0, 4).map((friend) => <button key={friend.username} onClick={() => openMessage(friend.username)}><Avatar name={friend.displayName} imageUrl={friend.avatarUrl} /><span><strong>{friend.displayName}</strong><small>Message @{friend.username}</small></span></button>)}</div>
           ) : (
             <div className="rail-empty"><Users size={24} /><p>Find friends and build your outdoor circle.</p><button onClick={() => setActiveNav("Friends")}>Find friends</button></div>
           )}
@@ -977,6 +986,7 @@ export default function HomePage() {
           choosePhoto={choosePhoto}
           publishing={publishing}
           profileName={profileName}
+          profileAvatarUrl={profileAvatarUrl}
           initial={initial}
           ageBand={profile.ageBand}
           close={closeComposer}
@@ -984,7 +994,7 @@ export default function HomePage() {
         />
       )}
       {profileOpen && (
-        <ProfileModal profile={profile} setProfile={setProfile} saving={savingProfile} close={() => setProfileOpen(false)} submit={saveProfile} />
+        <ProfileModal profile={profile} setProfile={setProfile} saving={savingProfile} close={() => setProfileOpen(false)} submit={saveProfile} showToast={showToast} />
       )}
       {toast && <div className="toast" role="status"><Sparkles size={18} /> {toast}</div>}
     </main>
@@ -1119,6 +1129,7 @@ function Feed({
   setFeedMode,
   initial,
   profileName,
+  profileAvatarUrl,
   openComposer,
   toggleMotivation,
   addComment,
@@ -1136,6 +1147,7 @@ function Feed({
   setFeedMode: (mode: FeedMode) => void;
   initial: string;
   profileName: string;
+  profileAvatarUrl?: string | null;
   openComposer: () => void;
   toggleMotivation: (post: SavedPost) => void;
   addComment: (postId: string, body: string) => Promise<boolean>;
@@ -1177,7 +1189,7 @@ function Feed({
       <TodayAdventures posts={posts} openComposer={openComposer} />
       <section className="composer" aria-label="Create a journey post">
         <div className="composer-top">
-          <span className="avatar">{initial}</span>
+          <Avatar name={profileName} imageUrl={profileAvatarUrl} />
           <button className="composer-prompt" onClick={openComposer}>Share an outdoor moment, {profileName.split(" ")[0]}…</button>
         </div>
         <div className="composer-quick-actions">
@@ -1280,7 +1292,7 @@ function CommunityPulse({ posts }: { posts: SavedPost[] }) {
       <div>
         {posts.slice(0, 4).map((post) => (
           <button key={post.id} onClick={() => document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-            <Avatar name={post.authorName} />
+            <Avatar name={post.authorName} imageUrl={post.authorAvatarUrl} />
             <span><strong>{post.authorName}</strong><small>{post.motivationCount > 0 ? `motivated ${post.motivationCount} ${post.motivationCount === 1 ? "person" : "people"} with ${post.activityType.toLowerCase()}` : `shared ${post.activityType.toLowerCase()} from ${post.location}`}</small></span>
           </button>
         ))}
@@ -1327,7 +1339,7 @@ function JourneyPost({
   return (
     <article className="post-card" id={`post-${post.id}`} tabIndex={-1}>
       <header className="post-header">
-        <Avatar name={post.authorName} />
+        <Avatar name={post.authorName} imageUrl={post.authorAvatarUrl} />
         <span className="post-author"><strong>{post.authorName}</strong><small>@{post.authorUsername} · {timeAgo(post.createdAt)}</small></span>
         <button className={post.isOwner ? "danger-icon" : ""} onClick={() => post.isOwner ? deletePost(post) : reportPost(post)} aria-label={post.isOwner ? "Delete post" : "Report post"}>
           {post.isOwner ? <Trash2 size={19} /> : <Flag size={18} />}
@@ -1719,7 +1731,7 @@ function MemberSection({
 function MemberCard({ person, manageFriend, openMessage }: { person: Person; manageFriend: (username: string, action: "request" | "accept" | "decline" | "remove" | "block") => void; openMessage: (username: string) => void }) {
   return (
     <article className="member-card">
-      <Avatar name={person.displayName} large />
+      <Avatar name={person.displayName} imageUrl={person.avatarUrl} large />
       <div className="member-copy"><h3>{person.displayName}</h3><span>@{person.username}</span>{person.bio && <p>{person.bio}</p>}<small>{[person.homeBase, person.favoriteActivities].filter(Boolean).join(" · ") || "New to Waymark"}</small><div className="match-tags"><span>{person.experienceLevel}</span><span>{person.pacePreference} pace</span><span>{person.groupStyle}</span></div></div>
       <div className="friend-actions">
         {person.relationship === "none" && <button onClick={() => manageFriend(person.username, "request")}><UserPlus size={16} /> Add friend</button>}
@@ -1788,7 +1800,7 @@ function ProfileView({
         </div>
         <div className="profile-body">
           <div className="profile-identity-row">
-            <span className="profile-avatar">{initial}</span>
+            <Avatar name={profile.displayName} imageUrl={profile.avatarUrl || (profile.avatarKey ? `/api/media/${profile.avatarKey}` : null)} large className="profile-avatar" />
             <button className="edit-profile" onClick={openEdit}><Edit3 size={16} /> Edit profile</button>
           </div>
           <span className="explorer-level"><Award size={14} /> {explorerLevel}</span>
@@ -1846,6 +1858,7 @@ function ComposerModal({
   choosePhoto,
   publishing,
   profileName,
+  profileAvatarUrl,
   initial,
   ageBand,
   close,
@@ -1860,6 +1873,7 @@ function ComposerModal({
   choosePhoto: (file: File | null) => void;
   publishing: boolean;
   profileName: string;
+  profileAvatarUrl?: string | null;
   initial: string;
   ageBand: string;
   close: () => void;
@@ -1934,7 +1948,7 @@ function ComposerModal({
           <button onClick={close} aria-label="Close composer"><X size={22} /></button>
         </header>
         <form onSubmit={submit}>
-          <div className="modal-author"><span className="avatar">{initial}</span><span><strong>{profileName}</strong><small>Posting as you</small></span></div>
+          <div className="modal-author"><Avatar name={profileName} imageUrl={profileAvatarUrl} /><span><strong>{profileName}</strong><small>Posting as you</small></span></div>
           {draft.inspiredByPostId && <div className="motivation-chain-banner"><Sparkles size={19} /><div><strong>You were motivated by another journey</strong><span>Sharing this will add your outdoor time to that post’s positive impact.</span></div></div>}
           <label className={`real-photo-picker ${photoPreview ? "has-photo" : ""} ${composerError && !photo ? "has-error" : ""}`}>
             {preparingPhoto ? (
@@ -2033,7 +2047,27 @@ function ComposerModal({
   );
 }
 
-function ProfileModal({ profile, setProfile, saving, close, submit }: { profile: Profile; setProfile: (profile: Profile) => void; saving: boolean; close: () => void; submit: (event: FormEvent<HTMLFormElement>) => void }) {
+function ProfileModal({
+  profile,
+  setProfile,
+  saving,
+  close,
+  submit,
+  showToast,
+}: {
+  profile: Profile;
+  setProfile: (profile: Profile) => void;
+  saving: boolean;
+  close: () => void;
+  submit: (event: FormEvent<HTMLFormElement>) => void;
+  showToast: (message: string) => void;
+}) {
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(
+    () => profile.avatarUrl || (profile.avatarKey ? `/api/media/${profile.avatarKey}` : ""),
+  );
+  const [avatarError, setAvatarError] = useState("");
+
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setProfile({ ...profile, [key]: value });
   }
@@ -2046,11 +2080,101 @@ function ProfileModal({ profile, setProfile, saving, close, submit }: { profile:
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [close]);
 
+  async function chooseAvatar(file: File | null) {
+    setAvatarError("");
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const prepared = await preparePhotoForUpload(file);
+      const avatarId = crypto.randomUUID();
+      const signResponse = await fetch("/api/uploads/sign", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose: "profile_avatar",
+          contentType: prepared.file.type || "image/jpeg",
+          byteSize: prepared.file.size,
+          avatarId,
+        }),
+      });
+      const signed = (await signResponse.json()) as {
+        error?: string;
+        key?: string;
+        uploadUrl?: string;
+        contentType?: string;
+      };
+      if (!signResponse.ok || !signed.uploadUrl || !signed.key || !signed.contentType) {
+        throw new Error(signed.error || "Could not start the avatar upload.");
+      }
+      const putResponse = await fetch(signed.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "content-type": signed.contentType,
+          "X-Roavly-Photo-Bytes": String(prepared.file.size),
+        },
+        body: prepared.file,
+      });
+      const putPayload = (await putResponse.json().catch(() => ({}))) as { error?: string };
+      if (!putResponse.ok) {
+        throw new Error(putPayload.error || "Avatar upload failed.");
+      }
+      setAvatarPreview(prepared.preview);
+      setProfile({
+        ...profile,
+        avatarKey: signed.key,
+        avatarUrl: `/api/media/${signed.key}`,
+      });
+      if (prepared.optimised) showToast("Profile photo optimised and ready to save.");
+      else showToast("Profile photo ready — save your profile to publish it.");
+    } catch (error) {
+      const message = friendlyUploadError(error);
+      setAvatarError(message);
+      void reportPhotoPreparationFailure(error, file);
+      void reportPhotoUploadFailure(error, file);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={close}>
       <section className="composer-modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="profile-modal-header"><div><span className="eyebrow">Your Waymark identity</span><h2 id="profile-title">Edit profile</h2></div><button type="button" onClick={close} aria-label="Close profile editor"><X size={22} /></button></header>
         <form onSubmit={submit}>
+          <div className="profile-avatar-picker">
+            <Avatar name={profile.displayName} imageUrl={avatarPreview || null} large className="profile-avatar" />
+            <div>
+              <strong>Profile photo</strong>
+              <p>JPG, PNG or WebP · iPhone HEIC converts automatically.</p>
+              <label className="avatar-file-button">
+                {uploadingAvatar ? "Uploading…" : avatarPreview ? "Change photo" : "Add photo"}
+                <input
+                  type="file"
+                  accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp"
+                  disabled={uploadingAvatar || saving}
+                  onChange={(event) => {
+                    const next = event.target.files?.[0] || null;
+                    event.target.value = "";
+                    void chooseAvatar(next);
+                  }}
+                />
+              </label>
+              {avatarPreview && (
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={uploadingAvatar || saving}
+                  onClick={() => {
+                    setAvatarPreview("");
+                    setProfile({ ...profile, avatarKey: "", avatarUrl: null });
+                  }}
+                >
+                  Remove photo
+                </button>
+              )}
+              {avatarError && <small className="field-error">{avatarError}</small>}
+            </div>
+          </div>
           <div className="form-grid single">
             <label><span>Display name</span><input required value={profile.displayName} onChange={(event) => update("displayName", event.target.value)} /></label>
             <label><span>Username</span><input required value={profile.username} onChange={(event) => update("username", event.target.value)} /><small>Letters, numbers, dots and underscores only.</small></label>
@@ -2068,7 +2192,7 @@ function ProfileModal({ profile, setProfile, saving, close, submit }: { profile:
             <label><span>Travel radius</span><input type="number" min={5} max={500} value={profile.travelRadiusKm} onChange={(event) => update("travelRadiusKm", Number(event.target.value))} /><small>Maximum kilometres you would usually travel.</small></label>
           </div>
           <label><span>Accessibility preferences <em>optional</em></span><textarea maxLength={240} value={profile.accessibilityNeeds} onChange={(event) => update("accessibilityNeeds", event.target.value)} placeholder="Share anything that would help others plan a suitable activity." /></label>
-          <div className="modal-footer"><a href="/api/auth/logout?return_to=%2F"><LogOut size={16} /> Sign out</a><button className="publish-button" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button></div>
+          <div className="modal-footer"><a href="/api/auth/logout?return_to=%2F"><LogOut size={16} /> Sign out</a><button className="publish-button" disabled={saving || uploadingAvatar}>{saving ? "Saving…" : "Save profile"}</button></div>
         </form>
       </section>
     </div>
@@ -2105,9 +2229,30 @@ function OutdoorTracker({ minutes, compact = false }: { minutes: number; compact
   );
 }
 
-function Avatar({ name, large = false }: { name: string; large?: boolean }) {
+function Avatar({
+  name,
+  large = false,
+  imageUrl,
+  className = "",
+}: {
+  name: string;
+  large?: boolean;
+  imageUrl?: string | null;
+  className?: string;
+}) {
   const initials = name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "R";
-  return <span className={`avatar ${large ? "large" : ""}`}>{initials}</span>;
+  const classes = [className.includes("profile-avatar") ? "" : "avatar", large ? "large" : "", imageUrl ? "has-image" : "", className]
+    .filter(Boolean)
+    .join(" ");
+  if (imageUrl) {
+    return (
+      <span className={classes}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt="" />
+      </span>
+    );
+  }
+  return <span className={classes}>{initials}</span>;
 }
 
 function EmptyState({ icon: Icon, title, copy, action, onAction }: { icon: typeof Compass; title: string; copy: string; action: string; onAction: () => void }) {

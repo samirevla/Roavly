@@ -70,6 +70,8 @@ export async function GET() {
         travelRadiusKm: profile.travelRadiusKm,
         groupStyle: profile.groupStyle,
         accessibilityNeeds: profile.accessibilityNeeds,
+        avatarKey: profile.avatarKey || "",
+        avatarUrl: profile.avatarKey ? `/api/media/${profile.avatarKey}` : null,
         relationship: state,
       };
     })

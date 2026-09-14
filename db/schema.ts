@@ -23,6 +23,7 @@ export const profiles = sqliteTable(
     travelRadiusKm: integer("travel_radius_km").notNull().default(50),
     groupStyle: text("group_style").notNull().default("Social"),
     accessibilityNeeds: text("accessibility_needs").notNull().default(""),
+    avatarKey: text("avatar_key").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },

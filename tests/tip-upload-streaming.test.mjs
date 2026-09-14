@@ -54,3 +54,29 @@ test("upload token helper exposes pure sign/verify that accept a secret string",
   assert.match(tokenHelper, /maxBytes/);
   assert.match(tokenHelper, /purpose/);
 });
+
+test("profile avatars use signed streaming upload without arrayBuffer buffering", async () => {
+  const signRoute = await source("app/api/uploads/sign/route.ts");
+  const putRoute = await source("app/api/uploads/put/route.ts");
+  const meRoute = await source("app/api/me/route.ts");
+  const schema = await source("db/schema.ts");
+  const page = await source("app/page.tsx");
+  const tokenHelper = await source("app/upload-token.ts");
+  const mediaRoute = await source("app/api/media/[...key]/route.ts");
+
+  assert.match(tokenHelper, /profile_avatar/);
+  assert.match(signRoute, /profile_avatar/);
+  assert.match(signRoute, /MAX_AVATAR_BYTES|avatars\//);
+  assert.match(putRoute, /access: "avatar"/);
+  assert.doesNotMatch(putRoute, /arrayBuffer\s*\(/);
+  assert.doesNotMatch(meRoute, /arrayBuffer\s*\(/);
+  assert.match(meRoute, /avatarKey/);
+  assert.match(meRoute, /assertMediaObjectExists/);
+  assert.match(schema, /avatarKey/);
+  assert.match(schema, /avatar_key/);
+  assert.match(page, /profile_avatar/);
+  assert.match(page, /preparePhotoForUpload/);
+  assert.match(page, /imageUrl/);
+  assert.match(page, /has-image|<img/);
+  assert.match(mediaRoute, /avatars\//);
+});

@@ -167,7 +167,11 @@ export async function GET() {
   const publicProfiles = new Map(
     allProfiles.map((profile) => [
       profile.email,
-      { displayName: profile.displayName, username: profile.username },
+      {
+        displayName: profile.displayName,
+        username: profile.username,
+        avatarUrl: profile.avatarKey ? `/api/media/${profile.avatarKey}` : null,
+      },
     ]),
   );
 
@@ -187,6 +191,7 @@ export async function GET() {
       imageUrl: `/api/media/${post.imageKey}`,
       authorName: author?.displayName || post.authorName,
       authorUsername: author?.username || "waymark.member",
+      authorAvatarUrl: author?.avatarUrl || null,
     }];
   });
 
@@ -198,6 +203,7 @@ export async function GET() {
         ...member,
         displayName: publicProfiles.get(member.userEmail)?.displayName || "Waymark member",
         username: publicProfiles.get(member.userEmail)?.username || "waymark.member",
+        avatarUrl: publicProfiles.get(member.userEmail)?.avatarUrl || null,
         isViewer: member.userEmail === user.email,
       }));
     const viewerMembership = members.find((member) => member.isViewer);
@@ -214,6 +220,7 @@ export async function GET() {
       ...plan,
       hostName: host?.displayName || "Waymark host",
       hostUsername: host?.username || "waymark.member",
+      hostAvatarUrl: host?.avatarUrl || null,
       isHost: plan.hostEmail === user.email,
       viewerStatus: plan.hostEmail === user.email ? "host" : viewerMembership?.status || "none",
       attendeeCount: members.filter((member) => member.status === "accepted").length,
@@ -232,6 +239,7 @@ export async function GET() {
       ...club,
       ownerName: owner?.displayName || "Waymark member",
       ownerUsername: owner?.username || "waymark.member",
+      ownerAvatarUrl: owner?.avatarUrl || null,
       memberCount: members.length,
       viewerJoined: members.some((member) => member.userEmail === user.email),
       isOwner: club.ownerEmail === user.email,

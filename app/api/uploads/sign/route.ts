@@ -1,5 +1,5 @@
 import { getChatGPTUser } from "../../../chatgpt-auth";
-import { MAX_PHOTO_BYTES } from "../../../photo-upload";
+import { MAX_AVATAR_BYTES, MAX_PHOTO_BYTES } from "../../../photo-upload";
 import {
   getUploadSigningSecret,
   signUploadToken,
@@ -50,14 +50,20 @@ export async function POST(request: Request) {
     byteSize?: number;
     tipId?: string;
     postId?: string;
+    avatarId?: string;
   } | null;
 
   if (!body) return Response.json({ error: "Expected JSON body." }, { status: 400 });
 
   const purpose = body.purpose as UploadPurpose | undefined;
-  if (purpose !== "tip_media" && purpose !== "tip_preview" && purpose !== "post_photo") {
+  if (
+    purpose !== "tip_media" &&
+    purpose !== "tip_preview" &&
+    purpose !== "post_photo" &&
+    purpose !== "profile_avatar"
+  ) {
     return Response.json(
-      { error: "purpose must be tip_media, tip_preview or post_photo." },
+      { error: "purpose must be tip_media, tip_preview, post_photo or profile_avatar." },
       { status: 400 },
     );
   }
@@ -75,9 +81,30 @@ export async function POST(request: Request) {
   let key: string;
   let maxBytes: number;
   let entityId: string;
-  let entityField: "tipId" | "postId";
+  let entityField: "tipId" | "postId" | "avatarId";
 
-  if (purpose === "post_photo") {
+  if (purpose === "profile_avatar") {
+    const avatarId = String(body.avatarId || "").trim();
+    if (!UUID_RE.test(avatarId)) {
+      return Response.json({ error: "avatarId must be a UUID." }, { status: 400 });
+    }
+    if (!POST_PHOTO_TYPES.has(contentType)) {
+      return Response.json(
+        {
+          error:
+            "Use a JPG, PNG or WebP photo. Convert HEIC photos on the device before uploading.",
+        },
+        { status: 400 },
+      );
+    }
+    maxBytes = MAX_AVATAR_BYTES;
+    if (byteSize > maxBytes) {
+      return Response.json({ error: "Avatar photos must be smaller than 2 MB." }, { status: 400 });
+    }
+    key = `avatars/${avatarId}.${extension(contentType)}`;
+    entityId = avatarId;
+    entityField = "avatarId";
+  } else if (purpose === "post_photo") {
     const postId = String(body.postId || "").trim();
     if (!UUID_RE.test(postId)) {
       return Response.json({ error: "postId must be a UUID." }, { status: 400 });

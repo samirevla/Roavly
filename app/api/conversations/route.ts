@@ -94,6 +94,7 @@ export async function GET() {
           return {
             displayName: profile?.displayName || "Waymark member",
             username: profile?.username || "waymark.member",
+            avatarUrl: profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null,
             isViewer: item.userEmail === user.email,
           };
         });
@@ -116,6 +117,7 @@ export async function GET() {
             ? conversation.name
             : directMember?.displayName || "Direct message",
         username: conversation.type === "direct" ? directMember?.username || "" : "",
+        avatarUrl: conversation.type === "direct" ? directMember?.avatarUrl || null : null,
         activityType: conversation.activityType,
         startsAt: conversation.startsAt,
         location: conversation.location,

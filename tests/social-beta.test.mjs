@@ -98,6 +98,7 @@ test("real photo uploads are required and constrained on both client and server"
   assert.match(postsApi, /imageKey must match posts/);
   assert.match(page, /\/api\/uploads\/sign/);
   assert.match(page, /post_photo/);
+  assert.match(page, /profile_avatar/);
   assert.match(page, /Upload needs attention/);
   assert.match(page, /Still needed/);
   assert.match(clientPhoto, /api\/client-diagnostics/);

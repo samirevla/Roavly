@@ -77,6 +77,7 @@ export async function GET(
         createdAt: message.createdAt,
         authorName: author?.displayName || "Waymark member",
         authorUsername: author?.username || "waymark.member",
+        authorAvatarUrl: author?.avatarKey ? `/api/media/${author.avatarKey}` : null,
         isMine: message.authorEmail === user.email,
       };
     }),
@@ -169,6 +170,7 @@ export async function POST(
         createdAt: now,
         authorName: profile?.displayName || user.displayName,
         authorUsername: profile?.username || "waymark.member",
+        authorAvatarUrl: profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null,
         isMine: true,
       },
     },

@@ -124,6 +124,7 @@ export async function GET() {
         locationPrecision: canSeeExact ? "exact" : "approximate",
         authorName: author?.displayName || post.authorName,
         authorUsername: author?.username || "waymark.member",
+        authorAvatarUrl: author?.avatarKey ? `/api/media/${author.avatarKey}` : null,
         imageUrl: `/api/media/${post.imageKey}`,
         motivationCount: postReactions.length,
         viewerMotivated: postReactions.some((reaction) => reaction.userEmail === viewer.email),
@@ -154,6 +155,9 @@ export async function GET() {
               createdAt: comment.createdAt,
               authorName: commentAuthor?.displayName || "Waymark member",
               authorUsername: commentAuthor?.username || "waymark.member",
+              authorAvatarUrl: commentAuthor?.avatarKey
+                ? `/api/media/${commentAuthor.avatarKey}`
+                : null,
               canDelete:
                 comment.authorEmail === viewer.email || authorEmail === viewer.email,
             };
