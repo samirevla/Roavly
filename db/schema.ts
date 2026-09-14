@@ -57,6 +57,7 @@ export const posts = sqliteTable(
     bestTime: text("best_time").notNull().default(""),
     inspiredByPostId: text("inspired_by_post_id"),
     imageKey: text("image_key").notNull().default("grampians"),
+    mediaType: text("media_type").notNull().default("image"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
@@ -649,4 +650,22 @@ export const adImpressions = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [index("ad_impressions_campaign_idx").on(table.campaignId)],
+);
+
+export const gearProductReviews = sqliteTable(
+  "gear_product_reviews",
+  {
+    id: text("id").primaryKey(),
+    userEmail: text("user_email").notNull(),
+    catalogId: text("catalog_id").notNull(),
+    rating: integer("rating").notNull(),
+    body: text("body").notNull(),
+    postId: text("post_id"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("gear_product_reviews_catalog_idx").on(table.catalogId),
+    index("gear_product_reviews_user_idx").on(table.userEmail),
+    uniqueIndex("gear_product_reviews_user_catalog_idx").on(table.userEmail, table.catalogId),
+  ],
 );
