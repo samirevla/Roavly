@@ -126,7 +126,7 @@ export function PostCard({
         }
         try {
           await roavlyApi.reportPost(token, post.id);
-          notify("Thanks. Roavly has received your report.");
+          notify("Thanks. Waymark has received your report.");
         } catch (error) {
           notify(error instanceof Error ? error.message : "Could not send the report.");
         }

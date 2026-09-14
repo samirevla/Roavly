@@ -22,6 +22,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 export type MessageFriend = {
   displayName: string;
   username: string;
+  avatarUrl?: string | null;
 };
 
 type ConversationMember = MessageFriend & {
@@ -34,6 +35,7 @@ type ConversationSummary = {
   purpose: "chat" | "journey";
   name: string;
   username: string;
+  avatarUrl?: string | null;
   activityType: string;
   startsAt: string | null;
   location: string;
@@ -57,6 +59,7 @@ type ChatMessage = {
   createdAt: string;
   authorName: string;
   authorUsername: string;
+  authorAvatarUrl?: string | null;
   isMine: boolean;
 };
 
@@ -507,7 +510,16 @@ export function MessagesView({
                       (index === 0 || messages[index - 1].authorUsername !== message.authorUsername);
                     return (
                       <div className={`message-line ${message.isMine ? "mine" : ""}`} key={message.id}>
-                        {!message.isMine && <span className="message-avatar">{initials(message.authorName)}</span>}
+                        {!message.isMine && (
+                          message.authorAvatarUrl ? (
+                            <span className="message-avatar has-image">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={message.authorAvatarUrl} alt="" />
+                            </span>
+                          ) : (
+                            <span className="message-avatar">{initials(message.authorName)}</span>
+                          )
+                        )}
                         <div>
                           {showAuthor && <small>{message.authorName}</small>}
                           <p>{message.body}</p>
@@ -547,7 +559,7 @@ export function MessagesView({
             </div>
             {friends.length ? newChatMode === "direct" ? (
               <div className="new-chat-friends">
-                {friends.map((friend) => <button key={friend.username} onClick={() => startDirect(friend.username)} disabled={creating}><span className="avatar">{initials(friend.displayName)}</span><span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><MessageCircle size={18} /></button>)}
+                {friends.map((friend) => <button key={friend.username} onClick={() => startDirect(friend.username)} disabled={creating}>{friend.avatarUrl ? <span className="avatar has-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={friend.avatarUrl} alt="" /></span> : <span className="avatar">{initials(friend.displayName)}</span>}<span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><MessageCircle size={18} /></button>)}
               </div>
             ) : (
               <form onSubmit={createJourneyTogether}>
@@ -563,7 +575,7 @@ export function MessagesView({
                 <div className="group-friend-list">
                   {friends.map((friend) => {
                     const selected = groupMembers.includes(friend.username);
-                    return <label key={friend.username} className={selected ? "selected" : ""}><input type="checkbox" checked={selected} onChange={() => toggleGroupMember(friend.username)} /><span className="avatar">{initials(friend.displayName)}</span><span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><i>{selected && <Check size={14} />}</i></label>;
+                    return <label key={friend.username} className={selected ? "selected" : ""}><input type="checkbox" checked={selected} onChange={() => toggleGroupMember(friend.username)} />{friend.avatarUrl ? <span className="avatar has-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={friend.avatarUrl} alt="" /></span> : <span className="avatar">{initials(friend.displayName)}</span>}<span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><i>{selected && <Check size={14} />}</i></label>;
                   })}
                 </div>
                 <button className="create-group-button" disabled={creating || groupName.trim().length < 2 || !groupMembers.length || !journeyLocation.trim() || !journeyStartsAt}>{creating ? "Creating…" : "Create Journey Together"}</button>
@@ -579,6 +591,14 @@ export function MessagesView({
 }
 
 function ConversationAvatar({ conversation }: { conversation: ConversationSummary }) {
+  if (conversation.purpose !== "journey" && conversation.type === "direct" && conversation.avatarUrl) {
+    return (
+      <span className="conversation-avatar has-image">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={conversation.avatarUrl} alt="" />
+      </span>
+    );
+  }
   return <span className={`conversation-avatar ${conversation.type === "group" ? "group" : ""} ${conversation.purpose === "journey" ? "journey" : ""}`}>{conversation.purpose === "journey" ? <Mountain size={19} /> : conversation.type === "group" ? <Users size={19} /> : initials(conversation.name)}</span>;
 }
 

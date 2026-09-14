@@ -3,6 +3,7 @@ import { getChatGPTUser } from "../../../chatgpt-auth";
 import { getDb } from "../../../../db";
 import {
   adventurePlans,
+  chatMessages,
   conversationMembers,
   conversations,
   friendships,
@@ -24,6 +25,7 @@ type PlanAction =
   | "start"
   | "complete"
   | "create_chat"
+  | "update"
   | "checkin"
   | "safe"
   | "cancel";
@@ -109,7 +111,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to update this adventure." }, { status: 401 });
   const { id } = await context.params;
-  const payload = (await request.json()) as { action?: PlanAction; username?: string };
+  const payload = (await request.json()) as {
+    action?: PlanAction;
+    username?: string;
+    title?: string;
+    activityType?: string;
+    startsAt?: string;
+    location?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    experienceLevel?: string;
+    pace?: string;
+    equipment?: string;
+    capacity?: number;
+    visibility?: "public" | "friends";
+    safetyNotes?: string;
+  };
   if (!payload.action) return Response.json({ error: "Choose an action." }, { status: 400 });
 
   const db = await getDb();
@@ -225,6 +242,132 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (raced) return Response.json({ status: "ready", conversationId: raced.id });
       throw error;
     }
+  }
+
+  if (payload.action === "update") {
+    if (!isHost) return Response.json({ error: "Only the host can edit this plan." }, { status: 403 });
+    if (started || plan.status === "started" || plan.status === "completed" || plan.status === "cancelled") {
+      return Response.json({ error: "Only scheduled journeys can be edited." }, { status: 409 });
+    }
+    if (plan.status !== "open" && plan.status !== "scheduled") {
+      return Response.json({ error: "Only scheduled journeys can be edited." }, { status: 409 });
+    }
+
+    const title = payload.title?.trim().slice(0, 80) || "";
+    const location = payload.location?.trim().slice(0, 160) || "";
+    const startsAt = new Date(payload.startsAt || "");
+    if (!title || !location || Number.isNaN(startsAt.getTime()) || startsAt.getTime() < Date.now() - 60000) {
+      return Response.json({ error: "Add a title, future date and meeting area." }, { status: 400 });
+    }
+
+    const next = {
+      title,
+      activityType: payload.activityType?.trim().slice(0, 50) || plan.activityType,
+      startsAt,
+      location,
+      latitude: Number.isFinite(payload.latitude as number) ? Number(payload.latitude) : plan.latitude,
+      longitude: Number.isFinite(payload.longitude as number) ? Number(payload.longitude) : plan.longitude,
+      experienceLevel: payload.experienceLevel?.trim().slice(0, 40) || plan.experienceLevel,
+      pace: payload.pace?.trim().slice(0, 40) || plan.pace,
+      equipment: payload.equipment?.trim().slice(0, 240) ?? plan.equipment,
+      capacity: Math.max(2, Math.min(50, Number(payload.capacity) || plan.capacity)),
+      visibility: payload.visibility === "friends" ? "friends" as const : "public" as const,
+      safetyNotes: payload.safetyNotes?.trim().slice(0, 300) ?? plan.safetyNotes,
+      updatedAt: now,
+    };
+
+    const changes: string[] = [];
+    if (next.title !== plan.title) changes.push(`title → “${next.title}”`);
+    if (next.startsAt.getTime() !== plan.startsAt.getTime()) {
+      changes.push(`time → ${next.startsAt.toLocaleString()}`);
+    }
+    if (next.location !== plan.location) changes.push(`meeting area → ${next.location}`);
+    if (next.activityType !== plan.activityType) changes.push(`activity → ${next.activityType}`);
+    if (next.experienceLevel !== plan.experienceLevel) changes.push(`experience → ${next.experienceLevel}`);
+    if (next.pace !== plan.pace) changes.push(`pace → ${next.pace}`);
+    if (next.equipment !== plan.equipment) changes.push("packing list updated");
+    if (next.capacity !== plan.capacity) changes.push(`capacity → ${next.capacity}`);
+    if (next.visibility !== plan.visibility) changes.push(`visibility → ${next.visibility}`);
+    if (next.safetyNotes !== plan.safetyNotes) changes.push("safety note updated");
+
+    await db.update(adventurePlans).set(next).where(eq(adventurePlans.id, id));
+
+    let conversationId: string | null = null;
+    const [existingChat] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.adventurePlanId, id))
+      .limit(1);
+
+    if (existingChat && (!existingChat.expiresAt || existingChat.expiresAt > now)) {
+      conversationId = existingChat.id;
+      await db
+        .update(conversations)
+        .set({
+          name: next.title,
+          activityType: next.activityType,
+          startsAt: next.startsAt,
+          location: next.location,
+          planNotes: [
+            next.equipment ? `Packing: ${next.equipment}` : "",
+            next.safetyNotes ? `Safety: ${next.safetyNotes}` : "",
+          ].filter(Boolean).join("\n"),
+          updatedAt: now,
+        })
+        .where(eq(conversations.id, existingChat.id));
+    } else if (!existingChat) {
+      const acceptedMembers = await db
+        .select()
+        .from(planMembers)
+        .where(and(eq(planMembers.planId, id), eq(planMembers.status, "accepted")));
+      const memberEmails = Array.from(
+        new Set([plan.hostEmail, ...acceptedMembers.map((member) => member.userEmail)]),
+      );
+      conversationId = crypto.randomUUID();
+      await db.insert(conversations).values({
+        id: conversationId,
+        type: "group",
+        name: next.title,
+        purpose: "journey",
+        activityType: next.activityType,
+        startsAt: next.startsAt,
+        location: next.location,
+        planNotes: [
+          next.equipment ? `Packing: ${next.equipment}` : "",
+          next.safetyNotes ? `Safety: ${next.safetyNotes}` : "",
+        ].filter(Boolean).join("\n"),
+        adventurePlanId: id,
+        directKey: null,
+        createdByEmail: user.email,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(conversationMembers).values(
+        memberEmails.map((email) => ({
+          id: crypto.randomUUID(),
+          conversationId: conversationId!,
+          userEmail: email,
+          joinedAt: now,
+          lastReadAt: now,
+        })),
+      );
+    }
+
+    let notified = false;
+    if (conversationId && changes.length) {
+      const summary = changes.slice(0, 6).join("; ");
+      await db.insert(chatMessages).values({
+        id: crypto.randomUUID(),
+        conversationId,
+        authorEmail: user.email,
+        body: `Host updated the plan: ${summary}`,
+        createdAt: now,
+      });
+      await db.update(conversations).set({ updatedAt: now }).where(eq(conversations.id, conversationId));
+      notified = true;
+    }
+
+    return Response.json({ status: "updated", notified, conversationId, changes });
   }
 
   if (payload.action === "invite") {

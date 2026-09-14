@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
 import { posts, reports } from "../../../../../db/schema";
 
@@ -11,6 +12,8 @@ export async function POST(
 ) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to report a post." }, { status: 401 });
+  const limited = enforceRateLimit(`report:${user.email}`, RATE_LIMITS.report);
+  if (limited) return limited;
   const { id: postId } = await context.params;
   const payload = (await request.json()) as { reason?: string };
   const reason = payload.reason?.trim().slice(0, 200) || "Community safety concern";

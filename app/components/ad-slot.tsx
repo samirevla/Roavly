@@ -14,7 +14,7 @@ type NativeAd = {
   disclosure: "Sponsored";
 };
 
-export function AdSlot({ placement = "feed" }: { placement?: "feed" | "explore" | "profile" }) {
+export function AdSlot({ placement = "feed" }: { placement?: "feed" | "explore" | "explore_gear" | "profile" }) {
   const [ad, setAd] = useState<NativeAd | null>(null);
   useEffect(() => {
     let active = true;

@@ -31,7 +31,7 @@ export async function GET() {
     const conversationIds = viewerMemberships.map((membership) => membership.conversationId);
     if (!conversationIds.length) return Response.json({ conversations: [], unreadTotal: 0 });
 
-    const [conversationRows, memberRows, messageRows, profileRows, blockRows] = await Promise.all([
+    const [conversationRows, memberRows, messageRows, blockRows] = await Promise.all([
       db
         .select()
         .from(conversations)
@@ -47,7 +47,6 @@ export async function GET() {
         .where(inArray(chatMessages.conversationId, conversationIds))
         .orderBy(desc(chatMessages.createdAt))
         .limit(1000),
-      db.select().from(profiles),
       db
         .select()
         .from(blocks)
@@ -58,6 +57,10 @@ export async function GET() {
           ),
         ),
     ]);
+    const memberEmails = Array.from(new Set(memberRows.map((member) => member.userEmail)));
+    const profileRows = memberEmails.length
+      ? await db.select().from(profiles).where(inArray(profiles.email, memberEmails))
+      : [];
     const blockedEmails = new Set(
       blockRows.flatMap((block) => [block.blockerEmail, block.blockedEmail]),
     );
@@ -89,8 +92,9 @@ export async function GET() {
         .map((item) => {
           const profile = profileRows.find((candidate) => candidate.email === item.userEmail);
           return {
-            displayName: profile?.displayName || "Roavly member",
-            username: profile?.username || "roavly.member",
+            displayName: profile?.displayName || "Waymark member",
+            username: profile?.username || "waymark.member",
+            avatarUrl: profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null,
             isViewer: item.userEmail === user.email,
           };
         });
@@ -113,6 +117,7 @@ export async function GET() {
             ? conversation.name
             : directMember?.displayName || "Direct message",
         username: conversation.type === "direct" ? directMember?.username || "" : "",
+        avatarUrl: conversation.type === "direct" ? directMember?.avatarUrl || null : null,
         activityType: conversation.activityType,
         startsAt: conversation.startsAt,
         location: conversation.location,
