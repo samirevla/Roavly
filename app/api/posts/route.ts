@@ -126,6 +126,8 @@ export async function GET() {
         authorUsername: author?.username || "waymark.member",
         authorAvatarUrl: author?.avatarKey ? `/api/media/${author.avatarKey}` : null,
         imageUrl: `/api/media/${post.imageKey}`,
+        mediaType: post.mediaType || "image",
+        mediaUrl: `/api/media/${post.imageKey}`,
         motivationCount: postReactions.length,
         viewerMotivated: postReactions.some((reaction) => reaction.userEmail === viewer.email),
         saveCount: postSaves.length,
@@ -230,12 +232,14 @@ export async function POST(request: Request) {
     if (!UUID_RE.test(id)) {
       return Response.json({ error: "postId must be a UUID." }, { status: 400 });
     }
-    if (!imageKey || !new RegExp(`^posts/${id}\\.(jpg|jpeg|png|webp)$`, "i").test(imageKey)) {
+    if (!imageKey || !new RegExp(`^posts/${id}\\.(jpg|jpeg|png|webp|mp4|mov|webm)$`, "i").test(imageKey)) {
       return Response.json(
-        { error: "imageKey must match posts/{postId}.jpg|png|webp after upload." },
+        { error: "imageKey must match posts/{postId}.jpg|png|webp|mp4|mov|webm after upload." },
         { status: 400 },
       );
     }
+    const mediaTypeFromKey = /\.(mp4|mov|webm)$/i.test(imageKey) ? "video" : "image";
+    const mediaType = String(body.mediaType || mediaTypeFromKey).toLowerCase() === "video" ? "video" : "image";
     if (!caption || caption.length > 500) {
       return Response.json({ error: "Write a caption between 1 and 500 characters." }, { status: 400 });
     }
@@ -311,6 +315,7 @@ export async function POST(request: Request) {
         bestTime,
         inspiredByPostId,
         imageKey,
+        mediaType,
         createdAt: new Date(),
       })
       .returning();
@@ -374,6 +379,8 @@ export async function POST(request: Request) {
           ...publicPost,
           authorUsername: profile?.username || "waymark.member",
           imageUrl: `/api/media/${imageKey}`,
+          mediaUrl: `/api/media/${imageKey}`,
+          mediaType,
           motivationCount: 0,
           viewerMotivated: false,
           saveCount: 0,

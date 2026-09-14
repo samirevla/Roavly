@@ -60,10 +60,11 @@ export async function POST(request: Request) {
     purpose !== "tip_media" &&
     purpose !== "tip_preview" &&
     purpose !== "post_photo" &&
+    purpose !== "post_media" &&
     purpose !== "profile_avatar"
   ) {
     return Response.json(
-      { error: "purpose must be tip_media, tip_preview, post_photo or profile_avatar." },
+      { error: "purpose must be tip_media, tip_preview, post_photo, post_media or profile_avatar." },
       { status: 400 },
     );
   }
@@ -104,23 +105,37 @@ export async function POST(request: Request) {
     key = `avatars/${avatarId}.${extension(contentType)}`;
     entityId = avatarId;
     entityField = "avatarId";
-  } else if (purpose === "post_photo") {
+  } else if (purpose === "post_photo" || purpose === "post_media") {
     const postId = String(body.postId || "").trim();
     if (!UUID_RE.test(postId)) {
       return Response.json({ error: "postId must be a UUID." }, { status: 400 });
     }
-    if (!POST_PHOTO_TYPES.has(contentType)) {
-      return Response.json(
-        {
-          error:
-            "Use a JPG, PNG or WebP photo. Convert HEIC photos on the device before uploading.",
-        },
-        { status: 400 },
-      );
-    }
-    maxBytes = MAX_PHOTO_BYTES;
-    if (byteSize > maxBytes) {
-      return Response.json({ error: "Photos must be smaller than 8 MB." }, { status: 400 });
+    const isVideo = contentType.startsWith("video/");
+    if (isVideo) {
+      if (!TIP_MEDIA_TYPES.has(contentType)) {
+        return Response.json(
+          { error: "Use MP4, MOV or WebM for journey clips." },
+          { status: 400 },
+        );
+      }
+      maxBytes = TIP_MEDIA_MAX;
+      if (byteSize > maxBytes) {
+        return Response.json({ error: "Video clips must be under 100 MB." }, { status: 400 });
+      }
+    } else {
+      if (!POST_PHOTO_TYPES.has(contentType)) {
+        return Response.json(
+          {
+            error:
+              "Use a JPG, PNG or WebP photo. Convert HEIC photos on the device before uploading.",
+          },
+          { status: 400 },
+        );
+      }
+      maxBytes = MAX_PHOTO_BYTES;
+      if (byteSize > maxBytes) {
+        return Response.json({ error: "Photos must be smaller than 8 MB." }, { status: 400 });
+      }
     }
     key = `posts/${postId}.${extension(contentType)}`;
     entityId = postId;

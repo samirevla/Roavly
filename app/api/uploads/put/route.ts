@@ -55,7 +55,7 @@ export async function PUT(request: Request) {
   let customMetadata: Record<string, string>;
   if (payload.purpose === "profile_avatar") {
     customMetadata = { owner: user.email, access: "avatar" };
-  } else if (payload.purpose === "post_photo") {
+  } else if (payload.purpose === "post_photo" || payload.purpose === "post_media") {
     const postIdMatch = payload.key.match(/^posts\/([^/.]+)\./);
     const postId = postIdMatch?.[1] || "";
     customMetadata = { owner: user.email, postId, access: "journey" };
