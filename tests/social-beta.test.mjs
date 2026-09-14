@@ -342,7 +342,10 @@ test("the premium social redesign stays real-data driven and preserves every cor
     assert.match(`${page}\n${css}`, new RegExp(tab));
   }
   assert.match(page, /Today’s Adventures/);
-  assert.match(page, /Community pulse/);
+  assert.match(page, /photo-first/);
+  assert.doesNotMatch(page, /Community pulse/);
+  assert.doesNotMatch(page, /composer-prompt/);
+  assert.doesNotMatch(page, /near-me-banner/);
   assert.match(page, /post-media/);
   assert.match(page, /Adventure passport/i);
   assert.match(explore, /visual-discovery/);

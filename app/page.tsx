@@ -848,9 +848,6 @@ export default function HomePage() {
             posts={visiblePosts}
             feedMode={feedMode}
             setFeedMode={setFeedMode}
-            initial={initial}
-            profileName={profileName}
-            profileAvatarUrl={profileAvatarUrl}
             openComposer={() => setComposerOpen(true)}
             toggleMotivation={toggleMotivation}
             addComment={addComment}
@@ -1114,7 +1111,6 @@ function LoadingScreen() {
       </aside>
       <section>
         <div className="loading-heading"><i /><i /></div>
-        <div className="loading-composer"><span /><div><i /><i /></div></div>
         <div className="loading-post"><header><span /><i /></header><div /><footer><i /><i /><i /></footer></div>
       </section>
       <aside><div className="loading-rail-card"><i /><strong /><span /><span /><span /></div><div className="loading-rail-card short"><i /><strong /><span /></div></aside>
@@ -1127,9 +1123,6 @@ function Feed({
   posts,
   feedMode,
   setFeedMode,
-  initial,
-  profileName,
-  profileAvatarUrl,
   openComposer,
   toggleMotivation,
   addComment,
@@ -1145,9 +1138,6 @@ function Feed({
   posts: SavedPost[];
   feedMode: FeedMode;
   setFeedMode: (mode: FeedMode) => void;
-  initial: string;
-  profileName: string;
-  profileAvatarUrl?: string | null;
   openComposer: () => void;
   toggleMotivation: (post: SavedPost) => void;
   addComment: (postId: string, body: string) => Promise<boolean>;
@@ -1185,48 +1175,13 @@ function Feed({
   const emptyActionHandler = feedMode === "Near Me" && nearMeBlocked ? onRequestLocation : openComposer;
 
   return (
-    <div className="social-feed">
+    <div className="social-feed photo-first">
       <TodayAdventures posts={posts} openComposer={openComposer} />
-      <section className="composer" aria-label="Create a journey post">
-        <div className="composer-top">
-          <Avatar name={profileName} imageUrl={profileAvatarUrl} />
-          <button className="composer-prompt" onClick={openComposer}>Share an outdoor moment, {profileName.split(" ")[0]}…</button>
-        </div>
-        <div className="composer-quick-actions">
-          <button onClick={openComposer}><ImagePlus size={18} /> Photo</button>
-          <button onClick={openComposer}><Mountain size={18} /> Log journey</button>
-          <button onClick={openComposer}><MapPin size={18} /> Location</button>
-          <button className="composer-share" onClick={openComposer}>Create</button>
-        </div>
-      </section>
       <div className="feed-tabs" role="tablist" aria-label="Feed filters">
         {(["Near Me", "Community", "Friends"] as const).map((mode) => (
           <button key={mode} role="tab" aria-selected={feedMode === mode} className={feedMode === mode ? "selected" : ""} onClick={() => setFeedMode(mode)}>{mode}</button>
         ))}
       </div>
-      {feedMode === "Near Me" && (
-        <div className={`near-me-banner ${nearMeBlocked ? "blocked" : ""}`} role="status">
-          <LocateFixed size={18} />
-          <div>
-            <strong>
-              {nearMePending
-                ? "Locating you"
-                : nearMeBlocked
-                  ? "Location unavailable"
-                  : `Within about ${nearMeRadiusKm} km`}
-            </strong>
-            <p>
-              {nearMePending
-                ? "Near Me ranks geotagged journeys closest to you first."
-                : nearMeBlocked
-                  ? "Enable location to see local adventures. Posts without a map pin never appear here."
-                  : `${posts.length} ${posts.length === 1 ? "journey" : "journeys"} nearby · posts without coordinates stay in Community.`}
-            </p>
-          </div>
-          {nearMeBlocked ? <button type="button" onClick={onRequestLocation}>Try again</button> : null}
-        </div>
-      )}
-      <CommunityPulse posts={posts} />
       <AdSlot placement="feed" />
       {posts.length ? posts.map((post) => (
         <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} sharePost={sharePost} saveJourney={saveJourney} />
@@ -1252,12 +1207,14 @@ function TodayAdventures({ posts, openComposer }: { posts: SavedPost[]; openComp
     )
     .slice(0, 10);
 
+  if (!adventures.length) return null;
+
   function openPost(postId: string) {
     document.getElementById(`post-${postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   return (
-    <section className="today-adventures" aria-label="Today's Adventures">
+    <section className="today-adventures compact" aria-label="Today's Adventures">
       <header><div><span className="live-pulse" aria-hidden="true" /><h2>Today’s Adventures</h2></div><small>See who’s outside</small></header>
       <div className="adventure-reel">
         <button className="adventure-reel-create" onClick={openComposer}>
@@ -1272,28 +1229,6 @@ function TodayAdventures({ posts, openComposer }: { posts: SavedPost[]; openComp
             </span>
             <strong>{post.authorName.split(" ")[0]}</strong>
             <small>{post.activityType}</small>
-          </button>
-        ))}
-        {!adventures.length && (
-          <div className="adventure-reel-empty">
-            <Mountain size={21} /><span><strong>The day is yours</strong><small>Be the first person to share an adventure today.</small></span>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function CommunityPulse({ posts }: { posts: SavedPost[] }) {
-  if (!posts.length) return null;
-  return (
-    <section className="community-pulse" aria-label="Community activity">
-      <header><span><Sparkles size={15} /></span><strong>Community pulse</strong></header>
-      <div>
-        {posts.slice(0, 4).map((post) => (
-          <button key={post.id} onClick={() => document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-            <Avatar name={post.authorName} imageUrl={post.authorAvatarUrl} />
-            <span><strong>{post.authorName}</strong><small>{post.motivationCount > 0 ? `motivated ${post.motivationCount} ${post.motivationCount === 1 ? "person" : "people"} with ${post.activityType.toLowerCase()}` : `shared ${post.activityType.toLowerCase()} from ${post.location}`}</small></span>
           </button>
         ))}
       </div>

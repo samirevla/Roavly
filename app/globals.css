@@ -10843,3 +10843,115 @@ button.linkish {
     min-height: 104px;
   }
 }
+
+
+/* ===== Photo First Home feed (calm, premium, photo-led) ===== */
+.social-feed.photo-first {
+  padding-top: 2px;
+}
+
+.social-feed.photo-first > .feed-tabs {
+  margin-top: 4px;
+  margin-bottom: 10px;
+}
+
+.social-feed.photo-first > .today-adventures.compact {
+  margin-bottom: 4px;
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+
+.social-feed.photo-first > .post-card {
+  margin-bottom: 22px;
+}
+
+.social-feed.photo-first > .post-card:first-of-type,
+.social-feed.photo-first > .ad-slot + .post-card {
+  margin-top: 2px;
+}
+
+.social-feed.photo-first .post-header {
+  min-height: 64px;
+  padding: 14px 16px 12px;
+}
+
+.social-feed.photo-first .post-header .avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.social-feed.photo-first .post-author strong {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.social-feed.photo-first .post-media {
+  border-radius: 0;
+}
+
+.social-feed.photo-first .post-media .post-image {
+  aspect-ratio: 4 / 5;
+  max-height: none;
+}
+
+@media (max-width: 920px) {
+  .social-feed.photo-first > .feed-tabs {
+    margin-bottom: 6px;
+    padding-top: 2px;
+  }
+
+  .social-feed.photo-first > .post-card {
+    margin-bottom: 18px;
+    border-bottom: 10px solid var(--canvas);
+  }
+
+  .social-feed.photo-first .post-header {
+    min-height: 60px;
+    padding: 14px 15px 12px;
+  }
+
+  .social-feed.photo-first .post-header .avatar {
+    width: 46px;
+    height: 46px;
+  }
+
+  .social-feed.photo-first .post-author strong {
+    font-size: 16px;
+  }
+
+  .social-feed.photo-first .post-author small {
+    margin-top: 2px;
+    font-size: 12px;
+  }
+
+  .social-feed.photo-first .post-media .post-image {
+    aspect-ratio: 3 / 4;
+  }
+
+  /* Less stacked chrome above the first photo */
+  .main-column:has(.social-feed.photo-first) .feed-heading {
+    padding-bottom: 6px;
+  }
+}
+
+@media (max-width: 650px) {
+  .social-feed.photo-first > .today-adventures.compact {
+    padding: 8px 0 10px;
+  }
+
+  .social-feed.photo-first > .post-card {
+    margin-bottom: 20px;
+    border-bottom-width: 12px;
+  }
+
+  .social-feed.photo-first .post-header,
+  .social-feed.photo-first .post-social-counts,
+  .social-feed.photo-first .post-actions,
+  .social-feed.photo-first .post-copy,
+  .social-feed.photo-first .activity-stats.journey-snapshot,
+  .social-feed.photo-first .spot-facts,
+  .social-feed.photo-first .comment-section {
+    margin-right: 15px;
+    margin-left: 15px;
+  }
+}
