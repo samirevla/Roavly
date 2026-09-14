@@ -689,7 +689,7 @@ function PlansView({
                 )}
                 {(canCreateChat || canOpenChat) && (
                   <button className="plan-cta journey-chat-action" onClick={() => onOpenChat(plan)}>
-                    <MessageCircle size={16} /> {canOpenChat ? "Open chat" : "Create chat"}
+                    <MessageCircle size={16} /> {canOpenChat ? "Open journey chat" : "Create journey chat"}
                   </button>
                 )}
                 {started && participant && (
