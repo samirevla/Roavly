@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Clapperboard,
   Clock3,
   Compass,
   Flag,
@@ -30,9 +31,10 @@ import { useEffect, useState } from "react";
 import { NEAR_ME_RADIUS_KM, type GeoPoint } from "../geo";
 import { ExploreMap, JourneyMapPost, type UserLocationStatus } from "./explore-map";
 import { AdSlot } from "./ad-slot";
+import { ClipsView } from "./clips-view";
 import { MonetizationView } from "./monetization-view";
 
-type DiscoverTab = "Map" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips" | "Gear";
+type DiscoverTab = "Map" | "Clips" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips" | "Gear";
 
 type SavedAdventure = {
   id: string;
@@ -280,19 +282,29 @@ export function DiscoverView({
     Clubs: hub.clubs.length,
   };
 
+  const clipsMode = tab === "Clips";
+
   return (
-    <section className="discover-shell">
+    <section className={`discover-shell${clipsMode ? " clips-mode" : ""}`}>
+      {!clipsMode && (
       <article className="discover-hero">
         <div>
           <span className="eyebrow">FROM INSPIRATION TO ACTION</span>
           <h2>Find it. Plan it. Get outside.</h2>
           <p>Discover real journeys, save the ones that spark something, then turn them into safe plans with people who match your pace.</p>
         </div>
-        <button onClick={onShareJourney}><Plus size={18} /> Share a journey</button>
+        <div className="discover-hero-actions">
+          <button onClick={onShareJourney}><Plus size={18} /> Share a journey</button>
+          <button type="button" className="discover-hero-secondary" onClick={() => onTabChange("Clips")}>
+            <Clapperboard size={18} /> Watch clips
+          </button>
+        </div>
       </article>
+      )}
       <nav className="discover-tabs" aria-label="Discover tools">
         {([
           ["Map", Map],
+          ["Clips", Clapperboard],
           ["Saved", Bookmark],
           ["Plans", CalendarDays],
           ["Clubs", Users],
@@ -317,6 +329,9 @@ export function DiscoverView({
           onRequestLocation={onRequestLocation}
           radiusKm={nearMeRadiusKm}
         />
+      )}
+      {tab === "Clips" && (
+        <ClipsView showToast={showToast} onShareJourney={onShareJourney} />
       )}
       {tab === "Saved" && (
         <SavedView

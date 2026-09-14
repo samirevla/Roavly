@@ -189,7 +189,7 @@ type ComposerDraft = {
 const primaryNavigation: {
   label: "Home" | "Explore" | "Journeys" | "Profile";
   nav: NavKey;
-  discover?: "Map" | "Plans";
+  discover?: "Map" | "Plans" | "Clips";
   icon: typeof Home;
 }[] = [
   { label: "Home", nav: "Feed", icon: Home },
@@ -254,7 +254,7 @@ export default function HomePage() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [messageTarget, setMessageTarget] = useState<string | null>(null);
   const [conversationTarget, setConversationTarget] = useState<string | null>(null);
-  const [discoverStart, setDiscoverStart] = useState<"Map" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips" | "Gear">("Map");
+  const [discoverStart, setDiscoverStart] = useState<"Map" | "Clips" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips" | "Gear">("Map");
 
   useEffect(() => {
     let active = true;
@@ -359,15 +359,17 @@ export default function HomePage() {
     profile?.avatarUrl || (profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null);
   const firstName = profileName.split(" ")[0] || "adventurer";
 
-  function navigatePrimary(nav: NavKey, discover?: "Map" | "Plans") {
+  function navigatePrimary(nav: NavKey, discover?: "Map" | "Plans" | "Clips") {
     if (discover) setDiscoverStart(discover);
     setActiveNav(nav);
   }
 
-  function primaryIsActive(nav: NavKey, discover?: "Map" | "Plans") {
+  function primaryIsActive(nav: NavKey, discover?: "Map" | "Plans" | "Clips") {
     if (nav !== activeNav) return false;
     if (nav !== "Explore") return true;
-    return discover === "Plans" ? discoverStart === "Plans" : discoverStart !== "Plans";
+    if (discover === "Plans") return discoverStart === "Plans";
+    if (discover === "Clips") return discoverStart === "Clips";
+    return discoverStart !== "Plans";
   }
 
   function showToast(message: string) {
@@ -787,7 +789,7 @@ export default function HomePage() {
   if (!viewer || !profile) return <WelcomeScreen signIn={signIn} />;
 
   return (
-    <main className={`app-shell ${activeNav === "Messages" ? "messages-active" : ""}`}>
+    <main className={`app-shell ${activeNav === "Messages" ? "messages-active" : ""}${activeNav === "Explore" && discoverStart === "Clips" ? " clips-active" : ""}`}>
       <header className="desktop-topbar">
         <button className="kinetic-brand" onClick={() => setActiveNav("Feed")} aria-label="Waymark home">
           <WaymarkLogo />
@@ -867,6 +869,7 @@ export default function HomePage() {
             feedMode={feedMode}
             setFeedMode={setFeedMode}
             openComposer={() => setComposerOpen(true)}
+            onOpenClips={() => navigatePrimary("Explore", "Clips")}
             toggleMotivation={toggleMotivation}
             addComment={addComment}
             deleteComment={deleteComment}
@@ -1142,6 +1145,7 @@ function Feed({
   feedMode,
   setFeedMode,
   openComposer,
+  onOpenClips,
   toggleMotivation,
   addComment,
   deleteComment,
@@ -1157,6 +1161,7 @@ function Feed({
   feedMode: FeedMode;
   setFeedMode: (mode: FeedMode) => void;
   openComposer: () => void;
+  onOpenClips: () => void;
   toggleMotivation: (post: SavedPost) => void;
   addComment: (postId: string, body: string) => Promise<boolean>;
   deleteComment: (postId: string, commentId: string) => void;
@@ -1194,7 +1199,7 @@ function Feed({
 
   return (
     <div className="social-feed photo-first">
-      <TodayAdventures posts={posts} openComposer={openComposer} />
+      <TodayAdventures posts={posts} openComposer={openComposer} onOpenClips={onOpenClips} />
       <div className="feed-tabs" role="tablist" aria-label="Feed filters">
         {(["Near Me", "Community", "Friends"] as const).map((mode) => (
           <button key={mode} role="tab" aria-selected={feedMode === mode} className={feedMode === mode ? "selected" : ""} onClick={() => setFeedMode(mode)}>{mode}</button>
@@ -1216,7 +1221,7 @@ function Feed({
   );
 }
 
-function TodayAdventures({ posts, openComposer }: { posts: SavedPost[]; openComposer: () => void }) {
+function TodayAdventures({ posts, openComposer, onOpenClips }: { posts: SavedPost[]; openComposer: () => void; onOpenClips: () => void }) {
   const today = new Date().toDateString();
   const adventures = posts
     .filter((post, index, all) =>
@@ -1224,8 +1229,9 @@ function TodayAdventures({ posts, openComposer }: { posts: SavedPost[]; openComp
       all.findIndex((item) => item.authorUsername === post.authorUsername) === index,
     )
     .slice(0, 10);
+  const hasVideoClips = posts.some((post) => post.mediaType === "video");
 
-  if (!adventures.length) return null;
+  if (!adventures.length && !hasVideoClips) return null;
 
   function openPost(postId: string) {
     document.getElementById(`post-${postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1233,7 +1239,11 @@ function TodayAdventures({ posts, openComposer }: { posts: SavedPost[]; openComp
 
   return (
     <section className="today-adventures compact" aria-label="Today's Adventures">
-      <header><div><span className="live-pulse" aria-hidden="true" /><h2>Today’s Adventures</h2></div><small>See who’s outside</small></header>
+      <header>
+        <div><span className="live-pulse" aria-hidden="true" /><h2>Today’s Adventures</h2></div>
+        <button type="button" className="adventure-clips-link" onClick={onOpenClips}>Watch clips</button>
+      </header>
+      {adventures.length ? (
       <div className="adventure-reel">
         <button className="adventure-reel-create" onClick={openComposer}>
           <span><Plus size={20} /></span><strong>Your adventure</strong><small>Share today</small>
@@ -1250,6 +1260,13 @@ function TodayAdventures({ posts, openComposer }: { posts: SavedPost[]; openComp
           </button>
         ))}
       </div>
+      ) : (
+        <div className="adventure-reel adventure-reel-empty-clips">
+          <button type="button" className="adventure-reel-create" onClick={onOpenClips}>
+            <span><Plus size={20} /></span><strong>Watch clips</strong><small>Vertical journey videos</small>
+          </button>
+        </div>
+      )}
     </section>
   );
 }
