@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Send,
+  Flag,
   ShieldCheck,
   UserRound,
   Users,
@@ -70,6 +71,7 @@ export function MessagesView({
   onStarted,
   onConversationStarted,
   onUnreadChange,
+  onBlockUser,
   showToast,
 }: {
   friends: MessageFriend[];
@@ -78,6 +80,7 @@ export function MessagesView({
   onStarted: () => void;
   onConversationStarted: () => void;
   onUnreadChange: (count: number) => void;
+  onBlockUser?: (username: string) => Promise<boolean | void> | boolean | void;
   showToast: (message: string) => void;
 }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -389,6 +392,36 @@ export function MessagesView({
     }
   }
 
+  async function reportMessage(message: ChatMessage) {
+    if (!window.confirm("Report this message for a community safety review?")) return;
+    const response = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        targetType: "message",
+        targetId: message.id,
+        reason: "Community safety concern",
+      }),
+    });
+    const payload = (await response.json()) as { reported?: boolean; error?: string };
+    showToast(
+      response.ok
+        ? "Report received. Thank you for protecting the community."
+        : payload.error || "Could not submit the report.",
+    );
+  }
+
+  async function blockActiveDirect() {
+    if (!activeConversation || activeConversation.type !== "direct" || !activeConversation.username) return;
+    if (!onBlockUser) return;
+    const username = activeConversation.username;
+    const blocked = await onBlockUser(username);
+    if (blocked === false) return;
+    setActiveId(null);
+    setMessages([]);
+    await refreshConversations(true);
+  }
+
   async function leaveGroup() {
     if (!activeConversation || activeConversation.type !== "group") return;
     if (!window.confirm(`Leave ${activeConversation.name}?`)) return;
@@ -458,6 +491,9 @@ export function MessagesView({
                 <button className="chat-back" onClick={() => { setActiveId(null); setMessages([]); }} aria-label="Back to conversations"><ArrowLeft size={20} /></button>
                 <ConversationAvatar conversation={activeConversation} />
                 <div><strong>{activeConversation.name}</strong><span>{activeConversation.purpose === "journey" ? `${activeConversation.members.length} members · Journey Together` : activeConversation.type === "group" ? `${activeConversation.members.length} members · private group` : `@${activeConversation.username} · friend`}</span></div>
+                {activeConversation.type === "direct" && onBlockUser && (
+                  <button className="leave-group" type="button" onClick={() => void blockActiveDirect()}>Block</button>
+                )}
                 {activeConversation.type === "group" && <button className="leave-group" onClick={leaveGroup}>Leave</button>}
               </header>
               <div className="chat-safety"><ShieldCheck size={15} /><span>Keep it positive. Only members of this conversation can see these messages.</span></div>
@@ -522,7 +558,19 @@ export function MessagesView({
                         )}
                         <div>
                           {showAuthor && <small>{message.authorName}</small>}
-                          <p>{message.body}</p>
+                          <div className="message-bubble-row">
+                            <p>{message.body}</p>
+                            {!message.isMine && (
+                              <button
+                                type="button"
+                                className="report-message"
+                                aria-label={`Report message from ${message.authorName}`}
+                                onClick={() => void reportMessage(message)}
+                              >
+                                <Flag size={13} />
+                              </button>
+                            )}
+                          </div>
                           <time>{messageTime(message.createdAt)}</time>
                         </div>
                       </div>

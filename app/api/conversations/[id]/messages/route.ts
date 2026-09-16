@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { isPairBlocked } from "../../../../blocks";
 import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
 import {
@@ -50,6 +51,20 @@ export async function GET(
       { error: "This journey chat closed 48 hours after the journey ended." },
       { status: 410 },
     );
+  }
+
+  if (conversation.type === "direct") {
+    const members = await db
+      .select()
+      .from(conversationMembers)
+      .where(eq(conversationMembers.conversationId, id));
+    const otherMember = members.find((member) => member.userEmail !== user.email);
+    if (otherMember && (await isPairBlocked(db, user.email, otherMember.userEmail))) {
+      return Response.json(
+        { error: "You cannot message this member because one of you has blocked the other." },
+        { status: 403 },
+      );
+    }
   }
 
   const rows = await db
@@ -135,6 +150,12 @@ export async function POST(
     if (!friendship) {
       return Response.json(
         { error: "You can only send direct messages to accepted friends." },
+        { status: 403 },
+      );
+    }
+    if (await isPairBlocked(db, user.email, otherMember.userEmail)) {
+      return Response.json(
+        { error: "You cannot message this member because one of you has blocked the other." },
         { status: 403 },
       );
     }

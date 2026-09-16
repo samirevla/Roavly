@@ -147,7 +147,12 @@ export async function GET() {
           outUrl: `/api/out/${tag.id}`,
         })),
         comments: allComments
-          .filter((comment) => comment.postId === post.id && isApprovedEncouragement(comment.body))
+          .filter(
+            (comment) =>
+              comment.postId === post.id &&
+              isApprovedEncouragement(comment.body) &&
+              !blockedEmails.has(comment.authorEmail),
+          )
           .map((comment) => {
             const commentAuthor = authorProfiles.find((profile) => profile.email === comment.authorEmail);
             return {
@@ -162,6 +167,7 @@ export async function GET() {
                 : null,
               canDelete:
                 comment.authorEmail === viewer.email || authorEmail === viewer.email,
+              canReport: comment.authorEmail !== viewer.email,
             };
           }),
       };

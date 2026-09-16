@@ -154,5 +154,34 @@ test("friends route no longer bare full-table profiles select", async () => {
     "friends discovery should exclude self/blocked via notInArray",
   );
   assert.match(friends, /eq\(friendships\.userOneEmail, user\.email\)/);
-  assert.match(friends, /eq\(blocks\.blockerEmail, user\.email\)/);
+  assert.match(friends, /blockedCounterpartEmails\(db, user\.email\)/);
+  assert.match(friends, /blockUserByUsername/);
+});
+
+test("report and block surfaces cover comments, messages, and DM create", async () => {
+  const reportsApi = await source("app/api/reports/route.ts");
+  const blocksApi = await source("app/api/blocks/route.ts");
+  const conversations = await source("app/api/conversations/route.ts");
+  const messages = await source("app/api/conversations/[id]/messages/route.ts");
+  const posts = await source("app/api/posts/route.ts");
+  const schema = await source("db/schema.ts");
+  const page = await source("app/page.tsx");
+  const messagesView = await source("app/components/messages-view.tsx");
+  const migration = await source("drizzle/0015_content_reports.sql");
+
+  assert.match(schema, /"content_reports"/);
+  assert.match(migration, /CREATE TABLE `content_reports`/);
+  assert.match(reportsApi, /RATE_LIMITS\.report/);
+  assert.match(reportsApi, /targetType !== "comment" && targetType !== "message"/);
+  assert.match(blocksApi, /blockUserByUsername/);
+  assert.match(conversations, /isPairBlocked/);
+  assert.match(conversations, /You cannot message this member because one of you has blocked the other/);
+  assert.match(messages, /isPairBlocked/);
+  assert.match(posts, /!blockedEmails\.has\(comment\.authorEmail\)/);
+  assert.match(posts, /canReport:/);
+  assert.match(page, /post-safety-menu/);
+  assert.match(page, /\/api\/reports/);
+  assert.match(page, /\/api\/blocks/);
+  assert.match(messagesView, /targetType: "message"/);
+  assert.match(messagesView, /blockActiveDirect/);
 });

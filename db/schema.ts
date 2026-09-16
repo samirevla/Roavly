@@ -669,3 +669,24 @@ export const gearProductReviews = sqliteTable(
     uniqueIndex("gear_product_reviews_user_catalog_idx").on(table.userEmail, table.catalogId),
   ],
 );
+
+export const contentReports = sqliteTable(
+  "content_reports",
+  {
+    id: text("id").primaryKey(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    reporterEmail: text("reporter_email").notNull(),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("open"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("content_reports_target_user_idx").on(
+      table.targetType,
+      table.targetId,
+      table.reporterEmail,
+    ),
+    index("content_reports_status_idx").on(table.status),
+  ],
+);

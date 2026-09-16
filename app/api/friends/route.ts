@@ -1,7 +1,8 @@
 import { and, eq, notInArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { blockedCounterpartEmails, blockUserByUsername } from "../../blocks";
 import { getDb } from "../../../db";
-import { blocks, friendships, profiles } from "../../../db/schema";
+import { friendships, profiles } from "../../../db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET() {
   const db = await getDb();
   // Viewer-scoped friendships/blocks first, then load only profiles needed for
   // friendships / pending / discovery (exclude self + blocked counterparts).
-  const [relationships, allBlocks] = await Promise.all([
+  const [relationships, blockedEmails] = await Promise.all([
     db
       .select()
       .from(friendships)
@@ -26,21 +27,9 @@ export async function GET() {
           eq(friendships.userTwoEmail, user.email),
         ),
       ),
-    db
-      .select()
-      .from(blocks)
-      .where(
-        or(
-          eq(blocks.blockerEmail, user.email),
-          eq(blocks.blockedEmail, user.email),
-        ),
-      ),
+    blockedCounterpartEmails(db, user.email),
   ]);
 
-  const blockedEmails = new Set(
-    allBlocks.flatMap((block) => [block.blockerEmail, block.blockedEmail]),
-  );
-  blockedEmails.delete(user.email);
   const excludeEmails = [user.email, ...blockedEmails];
 
   const visibleProfiles = await db
@@ -117,16 +106,10 @@ export async function POST(request: Request) {
   const now = new Date();
 
   if (payload.action === "block") {
-    if (existing) await db.delete(friendships).where(eq(friendships.id, existing.id));
-    await db
-      .insert(blocks)
-      .values({
-        id: crypto.randomUUID(),
-        blockerEmail: user.email,
-        blockedEmail: target.email,
-        createdAt: now,
-      })
-      .onConflictDoNothing();
+    const result = await blockUserByUsername(db, user.email, targetUsername);
+    if ("error" in result) {
+      return Response.json({ error: result.error }, { status: result.status });
+    }
     return Response.json({ relationship: "none", blocked: true });
   }
 

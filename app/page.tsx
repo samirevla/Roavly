@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Menu,
   Move,
+  MoreVertical,
   Mountain,
   Plus,
   Route,
@@ -101,6 +102,7 @@ type Comment = {
   authorUsername: string;
   authorAvatarUrl?: string | null;
   canDelete: boolean;
+  canReport?: boolean;
 };
 
 type SavedPost = {
@@ -686,6 +688,34 @@ export default function HomePage() {
     showToast(response.ok ? "Report received. Thank you for protecting the community." : payload.error || "Could not submit the report.");
   }
 
+  async function reportComment(commentId: string) {
+    if (!window.confirm("Report this encouragement for a community safety review?")) return;
+    const response = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ targetType: "comment", targetId: commentId, reason: "Community safety concern" }),
+    });
+    const payload = (await response.json()) as { reported?: boolean; error?: string };
+    showToast(response.ok ? "Report received. Thank you for protecting the community." : payload.error || "Could not submit the report.");
+  }
+
+  async function blockAuthor(post: SavedPost) {
+    if (!window.confirm(`Block @${post.authorUsername}? You will stop seeing each other’s posts and direct messages.`)) return;
+    const response = await fetch("/api/blocks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: post.authorUsername }),
+    });
+    const payload = (await response.json()) as { blocked?: boolean; error?: string };
+    if (!response.ok || !payload.blocked) {
+      showToast(payload.error || "Could not block this member.");
+      return;
+    }
+    setPosts((current) => current.filter((item) => item.authorUsername !== post.authorUsername));
+    setPeople((current) => current.filter((person) => person.username !== post.authorUsername));
+    showToast("Member blocked. You will no longer see each other.");
+  }
+
   async function sharePost(post: SavedPost) {
     const shareData = { title: `${post.authorName} on Waymark`, text: post.caption, url: window.location.href };
     try {
@@ -735,7 +765,7 @@ export default function HomePage() {
   }
 
   async function manageFriend(targetUsername: string, action: "request" | "accept" | "decline" | "remove" | "block") {
-    if (action === "block" && !window.confirm(`Block @${targetUsername}? You will stop seeing each other’s posts and direct messages.`)) return;
+    if (action === "block" && !window.confirm(`Block @${targetUsername}? You will stop seeing each other’s posts and direct messages.`)) return false;
     const response = await fetch("/api/friends", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -744,7 +774,7 @@ export default function HomePage() {
     const payload = (await response.json()) as { relationship?: Relationship; error?: string };
     if (!response.ok || !payload.relationship) {
       showToast(payload.error || "Could not update this friendship.");
-      return;
+      return false;
     }
     setPeople((current) =>
       action === "block"
@@ -753,6 +783,9 @@ export default function HomePage() {
             person.username === targetUsername ? { ...person, relationship: payload.relationship! } : person,
           ),
     );
+    if (action === "block") {
+      setPosts((current) => current.filter((item) => item.authorUsername !== targetUsername));
+    }
     const messages: Record<typeof action, string> = {
       request: payload.relationship === "friends" ? "You are now friends." : "Friend request sent.",
       accept: "Friend request accepted.",
@@ -761,6 +794,7 @@ export default function HomePage() {
       block: "Member blocked. You will no longer see each other.",
     };
     showToast(messages[action]);
+    return true;
   }
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
@@ -875,6 +909,8 @@ export default function HomePage() {
             deleteComment={deleteComment}
             deletePost={deletePost}
             reportPost={reportPost}
+            reportComment={reportComment}
+            blockAuthor={blockAuthor}
             sharePost={sharePost}
             saveJourney={saveJourney}
             locationStatus={locationStatus}
@@ -910,6 +946,7 @@ export default function HomePage() {
             onStarted={() => setMessageTarget(null)}
             onConversationStarted={() => setConversationTarget(null)}
             onUnreadChange={setUnreadMessages}
+            onBlockUser={async (username) => manageFriend(username, "block")}
             showToast={showToast}
           />
         )}
@@ -942,6 +979,8 @@ export default function HomePage() {
             deleteComment={deleteComment}
             deletePost={deletePost}
             reportPost={reportPost}
+            reportComment={reportComment}
+            blockAuthor={blockAuthor}
             sharePost={sharePost}
             saveJourney={saveJourney}
           />
@@ -961,6 +1000,8 @@ export default function HomePage() {
             deleteComment={deleteComment}
             deletePost={deletePost}
             reportPost={reportPost}
+            reportComment={reportComment}
+            blockAuthor={blockAuthor}
             sharePost={sharePost}
             saveJourney={saveJourney}
           />
@@ -1151,6 +1192,8 @@ function Feed({
   deleteComment,
   deletePost,
   reportPost,
+  reportComment,
+  blockAuthor,
   sharePost,
   saveJourney,
   locationStatus,
@@ -1167,6 +1210,8 @@ function Feed({
   deleteComment: (postId: string, commentId: string) => void;
   deletePost: (post: SavedPost) => void;
   reportPost: (post: SavedPost) => void;
+  reportComment: (commentId: string) => void;
+  blockAuthor: (post: SavedPost) => void;
   sharePost: (post: SavedPost) => void;
   saveJourney: (post: SavedPost, action?: "toggle" | "plan") => void;
   locationStatus: UserLocationStatus;
@@ -1207,7 +1252,7 @@ function Feed({
       </div>
       <AdSlot placement="feed" />
       {posts.length ? posts.map((post) => (
-        <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} sharePost={sharePost} saveJourney={saveJourney} />
+        <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} reportComment={reportComment} blockAuthor={blockAuthor} sharePost={sharePost} saveJourney={saveJourney} />
       )) : (
         <EmptyState
           icon={emptyIcon}
@@ -1278,6 +1323,8 @@ function JourneyPost({
   deleteComment,
   deletePost,
   reportPost,
+  reportComment,
+  blockAuthor,
   sharePost,
   saveJourney,
 }: {
@@ -1287,6 +1334,8 @@ function JourneyPost({
   deleteComment: (postId: string, commentId: string) => void;
   deletePost: (post: SavedPost) => void;
   reportPost: (post: SavedPost) => void;
+  reportComment: (commentId: string) => void;
+  blockAuthor: (post: SavedPost) => void;
   sharePost: (post: SavedPost) => void;
   saveJourney: (post: SavedPost, action?: "toggle" | "plan") => void;
 }) {
@@ -1311,9 +1360,17 @@ function JourneyPost({
       <header className="post-header">
         <Avatar name={post.authorName} imageUrl={post.authorAvatarUrl} />
         <span className="post-author"><strong>{post.authorName}</strong><small>@{post.authorUsername} · {timeAgo(post.createdAt)}</small></span>
-        <button className={post.isOwner ? "danger-icon" : ""} onClick={() => post.isOwner ? deletePost(post) : reportPost(post)} aria-label={post.isOwner ? "Delete post" : "Report post"}>
-          {post.isOwner ? <Trash2 size={19} /> : <Flag size={18} />}
-        </button>
+        {post.isOwner ? (
+          <button className="danger-icon" onClick={() => deletePost(post)} aria-label="Delete post"><Trash2 size={19} /></button>
+        ) : (
+          <details className="post-safety-menu">
+            <summary aria-label="Post safety options"><MoreVertical size={18} /></summary>
+            <div className="post-safety-panel" role="menu">
+              <button type="button" role="menuitem" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); reportPost(post); }}><Flag size={15} /> Report post</button>
+              <button type="button" role="menuitem" className="danger-text" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); blockAuthor(post); }}><ShieldCheck size={15} /> Block @{post.authorUsername}</button>
+            </div>
+          </details>
+        )}
       </header>
       <div
         className={`post-media ${post.mediaType === "video" ? "is-video" : ""}`}
@@ -1389,7 +1446,10 @@ function JourneyPost({
         {(showAllComments ? post.comments : post.comments.slice(-2)).map((item) => (
           <div className="comment-row" key={item.id}>
             <p className="comment"><strong>{item.authorName}</strong><span>{item.body}</span></p>
-            {item.canDelete && <button className="delete-comment" onClick={() => deleteComment(post.id, item.id)} aria-label={`Delete encouragement from ${item.authorName}`}><Trash2 size={14} /></button>}
+            <div className="comment-actions">
+              {item.canReport && <button className="report-comment" onClick={() => reportComment(item.id)} aria-label={`Report encouragement from ${item.authorName}`}><Flag size={14} /></button>}
+              {item.canDelete && <button className="delete-comment" onClick={() => deleteComment(post.id, item.id)} aria-label={`Delete encouragement from ${item.authorName}`}><Trash2 size={14} /></button>}
+            </div>
           </div>
         ))}
         {commentsOpen ? (
@@ -1630,6 +1690,8 @@ function Friends({
   deleteComment,
   deletePost,
   reportPost,
+  reportComment,
+  blockAuthor,
   sharePost,
   saveJourney,
 }: {
@@ -1645,6 +1707,8 @@ function Friends({
   deleteComment: (postId: string, commentId: string) => void;
   deletePost: (post: SavedPost) => void;
   reportPost: (post: SavedPost) => void;
+  reportComment: (commentId: string) => void;
+  blockAuthor: (post: SavedPost) => void;
   sharePost: (post: SavedPost) => void;
   saveJourney: (post: SavedPost, action?: "toggle" | "plan") => void;
 }) {
@@ -1673,7 +1737,7 @@ function Friends({
         <section className="friends-journeys">
           <div className="friends-journeys-heading"><span className="eyebrow">FRIENDS FEED</span><h2>Your friends’ journeys</h2><p>Posts from accepted friends appear here automatically.</p></div>
           {posts.length ? posts.map((post) => (
-            <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} sharePost={sharePost} saveJourney={saveJourney} />
+            <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} reportComment={reportComment} blockAuthor={blockAuthor} sharePost={sharePost} saveJourney={saveJourney} />
           )) : (
             <div className="friend-posts-empty"><ImagePlus size={28} /><strong>No friend journeys yet</strong><p>Your friends’ first shared adventures will show up here.</p></div>
           )}
@@ -1713,7 +1777,8 @@ function MemberCard({ person, manageFriend, openMessage }: { person: Person; man
         {person.relationship === "none" && <button onClick={() => manageFriend(person.username, "request")}><UserPlus size={16} /> Add friend</button>}
         {person.relationship === "outgoing" && <button className="muted" disabled><Check size={16} /> Requested</button>}
         {person.relationship === "incoming" && <><button onClick={() => manageFriend(person.username, "accept")}><UserCheck size={16} /> Accept</button><button className="muted" onClick={() => manageFriend(person.username, "decline")}><X size={16} /> Decline</button></>}
-        {person.relationship === "friends" && <><button onClick={() => openMessage(person.username)}><MessageCircle size={16} /> Message</button><button className="muted" onClick={() => manageFriend(person.username, "remove")}><UserMinus size={16} /> Friends</button><button className="danger-text" onClick={() => manageFriend(person.username, "block")}><ShieldCheck size={16} /> Block</button></>}
+        {person.relationship === "friends" && <><button onClick={() => openMessage(person.username)}><MessageCircle size={16} /> Message</button><button className="muted" onClick={() => manageFriend(person.username, "remove")}><UserMinus size={16} /> Friends</button></>}
+        <button className="danger-text" onClick={() => manageFriend(person.username, "block")}><ShieldCheck size={16} /> Block</button>
       </div>
     </article>
   );
@@ -1733,6 +1798,8 @@ function ProfileView({
   deleteComment,
   deletePost,
   reportPost,
+  reportComment,
+  blockAuthor,
   sharePost,
   saveJourney,
 }: {
@@ -1749,6 +1816,8 @@ function ProfileView({
   deleteComment: (postId: string, commentId: string) => void;
   deletePost: (post: SavedPost) => void;
   reportPost: (post: SavedPost) => void;
+  reportComment: (commentId: string) => void;
+  blockAuthor: (post: SavedPost) => void;
   sharePost: (post: SavedPost) => void;
   saveJourney: (post: SavedPost, action?: "toggle" | "plan") => void;
 }) {
@@ -1819,7 +1888,7 @@ function ProfileView({
         </section>
       )}
       <div className="section-title recent-journeys-title"><div><span className="eyebrow">RECENT JOURNEYS</span><h2>Your trail so far</h2></div><button onClick={openComposer}><Plus size={17} /> New journey</button></div>
-      {posts.length ? posts.map((post) => <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} sharePost={sharePost} saveJourney={saveJourney} />) : <EmptyState icon={ImagePlus} title="Your explorer passport is waiting" copy="Share your first real outdoor moment and start building a trail of places, hours and achievements." action="Share journey" onAction={openComposer} />}
+      {posts.length ? posts.map((post) => <JourneyPost key={post.id} post={post} toggleMotivation={toggleMotivation} addComment={addComment} deleteComment={deleteComment} deletePost={deletePost} reportPost={reportPost} reportComment={reportComment} blockAuthor={blockAuthor} sharePost={sharePost} saveJourney={saveJourney} />) : <EmptyState icon={ImagePlus} title="Your explorer passport is waiting" copy="Share your first real outdoor moment and start building a trail of places, hours and achievements." action="Share journey" onAction={openComposer} />}
     </section>
   );
 }

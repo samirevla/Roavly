@@ -413,9 +413,11 @@ test("friendship, comments, reactions, reports and owner deletion are server-bac
   const page = await source("app/page.tsx");
   const positiveComments = await source("app/positive-comments.ts");
   const deleteApi = await source("app/api/posts/[id]/route.ts");
-  for (const table of ["friendships", "comments", "reactions", "reports"]) {
+  for (const table of ["friendships", "comments", "reactions", "reports", "content_reports", "blocks"]) {
     assert.match(schema, new RegExp(`"${table}"`));
   }
+  assert.match(page, /post-safety-menu/);
+  assert.match(page, /\/api\/reports/);
   assert.match(friendApi, /requestedByEmail/);
   assert.match(friendApi, /Only the recipient can accept/);
   assert.match(commentsApi, /isApprovedEncouragement/);
