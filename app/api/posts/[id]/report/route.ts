@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
 import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
-import { posts, reports } from "../../../../../db/schema";
+import { contentReports, posts, reports } from "../../../../../db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,9 @@ export async function POST(
   if (post.authorEmail === user.email) {
     return Response.json({ error: "You cannot report your own post." }, { status: 400 });
   }
+  const createdAt = new Date();
+  // Dual-write: keep legacy `reports` for existing indexes/tests, and mirror into
+  // `content_reports` so the admin moderation inbox can triage posts with comments/DMs.
   await db
     .insert(reports)
     .values({
@@ -30,7 +33,19 @@ export async function POST(
       postId,
       reporterEmail: user.email,
       reason,
-      createdAt: new Date(),
+      createdAt,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(contentReports)
+    .values({
+      id: crypto.randomUUID(),
+      targetType: "post",
+      targetId: postId,
+      reporterEmail: user.email,
+      reason,
+      status: "open",
+      createdAt,
     })
     .onConflictDoNothing();
   return Response.json({ reported: true });

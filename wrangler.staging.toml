@@ -24,3 +24,4 @@ directory = "./dist/client"
 [vars]
 ROAVLY_ALLOW_SITES_HEADERS = "0"
 AUTH_SESSION_DAYS = "30"
+ROAVLY_ADMIN_EMAILS = "ssemsedinovski@gmail.com"

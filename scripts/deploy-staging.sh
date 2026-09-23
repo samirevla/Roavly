@@ -75,6 +75,7 @@ built.r2_buckets = [
 built.vars = {
   ROAVLY_ALLOW_SITES_HEADERS: "0",
   AUTH_SESSION_DAYS: "30",
+  ROAVLY_ADMIN_EMAILS: "ssemsedinovski@gmail.com",
 };
 built.assets = { directory: "../client", binding: "ASSETS" };
 built.main = "index.js";
@@ -90,6 +91,7 @@ echo
 echo "==> Vars already in wrangler.staging.toml [vars]:"
 echo "    ROAVLY_ALLOW_SITES_HEADERS=0"
 echo "    AUTH_SESSION_DAYS=30"
+echo "    ROAVLY_ADMIN_EMAILS=ssemsedinovski@gmail.com"
 echo
 echo "R2 bucket: roavly-staging-media (BUCKET)"
 echo "Staging URL: https://roavly-staging.ssemsedinovski.workers.dev"
