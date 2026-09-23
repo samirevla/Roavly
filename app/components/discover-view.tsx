@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Clapperboard,
   Clock3,
   Compass,
   Flag,
@@ -13,10 +14,13 @@ import {
   MapPin,
   MessageCircle,
   Mountain,
+  Package,
+  Pencil,
   Play,
   Plus,
   ShieldCheck,
   Sparkles,
+  Star,
   Trophy,
   BadgeDollarSign,
   UserPlus,
@@ -24,10 +28,13 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ExploreMap, JourneyMapPost } from "./explore-map";
+import { NEAR_ME_RADIUS_KM, type GeoPoint } from "../geo";
+import { ExploreMap, JourneyMapPost, type UserLocationStatus } from "./explore-map";
+import { AdSlot } from "./ad-slot";
+import { ClipsView } from "./clips-view";
 import { MonetizationView } from "./monetization-view";
 
-type DiscoverTab = "Map" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips";
+type DiscoverTab = "Map" | "Clips" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips" | "Gear";
 
 type SavedAdventure = {
   id: string;
@@ -48,6 +55,7 @@ type PlanMember = {
   status: string;
   displayName: string;
   username: string;
+  avatarUrl?: string | null;
   isViewer: boolean;
   checkedInAt: string | null;
   safeAt: string | null;
@@ -62,6 +70,8 @@ type AdventurePlan = {
   startedAt: string | null;
   completedAt: string | null;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   experienceLevel: string;
   pace: string;
   equipment: string;
@@ -71,6 +81,7 @@ type AdventurePlan = {
   safetyNotes: string;
   hostName: string;
   hostUsername: string;
+  hostAvatarUrl?: string | null;
   isHost: boolean;
   viewerStatus: string;
   attendeeCount: number;
@@ -154,6 +165,10 @@ export function DiscoverView({
   friends,
   onOpenConversation,
   showToast,
+  userLocation = null,
+  locationStatus = "idle",
+  onRequestLocation,
+  nearMeRadiusKm = NEAR_ME_RADIUS_KM,
 }: {
   initialTab?: DiscoverTab;
   posts: JourneyMapPost[];
@@ -164,6 +179,10 @@ export function DiscoverView({
   friends: JourneyFriend[];
   onOpenConversation: (conversationId: string) => void;
   showToast: (message: string) => void;
+  userLocation?: GeoPoint | null;
+  locationStatus?: UserLocationStatus;
+  onRequestLocation?: () => void;
+  nearMeRadiusKm?: number;
 }) {
   const tab = initialTab;
   const [hub, setHub] = useState<HubData>(emptyHub);
@@ -172,6 +191,7 @@ export function DiscoverView({
   const [clubOpen, setClubOpen] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [planSource, setPlanSource] = useState<SavedAdventure | null>(null);
+  const [editingPlan, setEditingPlan] = useState<AdventurePlan | null>(null);
 
   async function loadHub() {
     setLoading(true);
@@ -262,24 +282,35 @@ export function DiscoverView({
     Clubs: hub.clubs.length,
   };
 
+  const clipsMode = tab === "Clips";
+
   return (
-    <section className="discover-shell">
+    <section className={`discover-shell${clipsMode ? " clips-mode" : ""}`}>
+      {!clipsMode && (
       <article className="discover-hero">
         <div>
           <span className="eyebrow">FROM INSPIRATION TO ACTION</span>
           <h2>Find it. Plan it. Get outside.</h2>
           <p>Discover real journeys, save the ones that spark something, then turn them into safe plans with people who match your pace.</p>
         </div>
-        <button onClick={onShareJourney}><Plus size={18} /> Share a journey</button>
+        <div className="discover-hero-actions">
+          <button onClick={onShareJourney}><Plus size={18} /> Share a journey</button>
+          <button type="button" className="discover-hero-secondary" onClick={() => onTabChange("Clips")}>
+            <Clapperboard size={18} /> Watch clips
+          </button>
+        </div>
       </article>
+      )}
       <nav className="discover-tabs" aria-label="Discover tools">
         {([
           ["Map", Map],
+          ["Clips", Clapperboard],
           ["Saved", Bookmark],
           ["Plans", CalendarDays],
           ["Clubs", Users],
           ["Challenges", Trophy],
           ["Tips", BadgeDollarSign],
+          ["Gear", Package],
         ] as const).map(([label, Icon]) => (
           <button key={label} className={tab === label ? "active" : ""} onClick={() => onTabChange(label)}>
             <Icon size={17} /><span>{label === "Plans" ? "Journeys" : label}</span>
@@ -289,7 +320,18 @@ export function DiscoverView({
       </nav>
 
       {tab === "Map" && (
-        <ExploreMap posts={posts} onOpenPost={onOpenPost} onShareJourney={onShareJourney} />
+        <ExploreMap
+          posts={posts}
+          onOpenPost={onOpenPost}
+          onShareJourney={onShareJourney}
+          userLocation={userLocation}
+          locationStatus={locationStatus}
+          onRequestLocation={onRequestLocation}
+          radiusKm={nearMeRadiusKm}
+        />
+      )}
+      {tab === "Clips" && (
+        <ClipsView showToast={showToast} onShareJourney={onShareJourney} />
       )}
       {tab === "Saved" && (
         <SavedView
@@ -310,6 +352,7 @@ export function DiscoverView({
           onCreate={() => openPlan()}
           onSafety={() => setSafetyOpen(true)}
           onOpenChat={openPlanChat}
+          onEdit={(plan) => setEditingPlan(plan)}
           onAction={(id, action, username) =>
             act(
               `/api/plans/${encodeURIComponent(id)}`,
@@ -334,6 +377,9 @@ export function DiscoverView({
             )
           }
         />
+      )}
+      {tab === "Gear" && (
+        <GearExploreView showToast={showToast} />
       )}
       {tab === "Clubs" && (
         <ClubsView
@@ -366,6 +412,30 @@ export function DiscoverView({
               setPlanOpen(false);
               onTabChange("Plans");
             }
+          }}
+        />
+      )}
+      {editingPlan && (
+        <EditPlanModal
+          plan={editingPlan}
+          close={() => setEditingPlan(null)}
+          submit={async (payload) => {
+            const response = await fetch(`/api/plans/${encodeURIComponent(editingPlan.id)}`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ action: "update", ...payload }),
+            });
+            const result = (await response.json()) as { error?: string; notified?: boolean };
+            if (!response.ok) {
+              showToast(result.error || "That plan could not be updated.");
+              return false;
+            }
+            showToast(result.notified === false
+              ? "Plan updated. No journey chat yet — create chat to notify the group."
+              : "Plan updated and the group was notified in chat.");
+            setEditingPlan(null);
+            await loadHub();
+            return true;
           }}
         />
       )}
@@ -457,6 +527,7 @@ function PlansView({
   onSafety,
   onAction,
   onOpenChat,
+  onEdit,
 }: {
   plans: AdventurePlan[];
   safety: SafetyProfile;
@@ -466,6 +537,7 @@ function PlansView({
   onSafety: () => void;
   onAction: (id: string, action: string, username?: string) => void;
   onOpenChat: (plan: AdventurePlan) => void;
+  onEdit: (plan: AdventurePlan) => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -498,6 +570,7 @@ function PlansView({
         );
         const pendingRequests = plan.members.filter((member) => member.status === "requested");
         const invitedMembers = plan.members.filter((member) => member.status === "invited");
+        const acceptedMembers = plan.members.filter((member) => member.status === "accepted");
         const canOpenChat = Boolean(
           plan.conversationId &&
           participant &&
@@ -511,16 +584,68 @@ function PlansView({
             : started
               ? "started"
               : "scheduled";
+        const packList = plan.equipment
+          ? plan.equipment.split(/[,;\n]+/).map((item) => item.trim()).filter(Boolean)
+          : [];
 
         return (
           <article className={`plan-card journey-${displayedStatus}`} key={plan.id}>
-            <header><span><CalendarDays size={20} /></span><div><small>{plan.activityType}</small><h3>{plan.title}</h3><p>Hosted by @{plan.hostUsername}</p></div><i className={`plan-state ${displayedStatus}`}>{displayedStatus}</i></header>
+            <header className="plan-card-hero">
+              <span className="plan-activity-icon" aria-hidden><CalendarDays size={20} /></span>
+              <div className="plan-hero-copy">
+                <small className="plan-activity-label">{plan.activityType}</small>
+                <h3>{plan.title}</h3>
+                <p>Hosted by @{plan.hostUsername}</p>
+              </div>
+              <div className="plan-hero-aside">
+                <i className={`plan-state ${displayedStatus}`}>{displayedStatus}</i>
+                {plan.isHost && scheduled && (
+                  <button type="button" className="plan-edit-btn" onClick={() => onEdit(plan)}>
+                    <Pencil size={14} /> Edit
+                  </button>
+                )}
+              </div>
+            </header>
+
             <div className="plan-details">
               <span><Clock3 size={16} /><strong>{formatPlanDate(plan.startsAt)}</strong><small>{started ? "Journey started" : completed ? "Original start time" : "Starts automatically"}</small></span>
               <span><MapPin size={16} /><strong>{plan.location}</strong><small>{plan.viewerStatus === "accepted" || plan.isHost ? "Meeting area" : "Exact pin hidden until accepted"}</small></span>
               <span><Mountain size={16} /><strong>{plan.experienceLevel}</strong><small>{plan.pace} pace</small></span>
               <span><Users size={16} /><strong>{plan.attendeeCount}/{plan.capacity}</strong><small>Places</small></span>
             </div>
+
+            <div className="plan-who">
+              <div className="plan-who-head">
+                <strong>Who’s coming</strong>
+                <small>{plan.attendeeCount} of {plan.capacity} places</small>
+              </div>
+              <div className="plan-who-strip" aria-label="Accepted members">
+                {acceptedMembers.length ? acceptedMembers.map((member) => (
+                  <span className="plan-who-chip" key={member.id} title={`@${member.username}`}>
+                    {member.avatarUrl
+                      ? <img src={member.avatarUrl} alt="" />
+                      : <em>{member.displayName.slice(0, 1).toUpperCase()}</em>}
+                    <span>{member.displayName.split(" ")[0]}</span>
+                  </span>
+                )) : (
+                  <span className="plan-who-empty">{plan.isHost ? "Invite friends or accept join requests." : "Spots are filling as the host accepts people."}</span>
+                )}
+              </div>
+            </div>
+
+            {packList.length > 0 && (
+              <div className="plan-bring">
+                <strong>What to bring</strong>
+                <ul>
+                  {packList.map((item) => (
+                    <li key={item}><Check size={14} /><span>{item}</span></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {plan.safetyNotes && <p className="plan-note"><strong>Host safety note:</strong> {plan.safetyNotes}</p>}
+
             {scheduled && (
               <div className="journey-lifecycle-note">
                 <Clock3 size={17} />
@@ -533,8 +658,7 @@ function PlansView({
                 <span><strong>Journey complete</strong><small>The group chat closes {relativeCloseTime(plan.chatExpiresAt, now)}.</small></span>
               </div>
             )}
-            {plan.equipment && <p className="plan-note"><strong>Bring:</strong> {plan.equipment}</p>}
-            {plan.safetyNotes && <p className="plan-note"><strong>Host safety note:</strong> {plan.safetyNotes}</p>}
+
             {plan.isHost && scheduled && pendingRequests.length > 0 && (
               <div className="join-requests">
                 <strong>Join requests</strong>
@@ -558,33 +682,49 @@ function PlansView({
                       <button onClick={() => onAction(plan.id, "invite", friend.username)}>Invite</button>
                     </div>
                   )) : (
-                    <p>{friends.length ? "Every friend is already included or invited." : "Add friends to Roavly, then invite them directly from here."}</p>
+                    <p>{friends.length ? "Every friend is already included or invited." : "Add friends to Waymark, then invite them directly from here."}</p>
                   )}
                 </div>
               </details>
             )}
-            <footer>
-              {scheduled && !plan.isHost && plan.viewerStatus === "none" && <button onClick={() => onAction(plan.id, "request")}><Users size={16} /> Ask to join</button>}
-              {scheduled && !plan.isHost && plan.viewerStatus === "requested" && <button disabled><Clock3 size={16} /> Request pending</button>}
-              {scheduled && !plan.isHost && plan.viewerStatus === "invited" && (
-                <>
-                  <button className="muted" onClick={() => onAction(plan.id, "decline_invite")}><X size={16} /> Decline</button>
-                  <button className="safe-action" onClick={() => onAction(plan.id, "accept_invite")}><Check size={16} /> Join journey</button>
-                </>
-              )}
-              {scheduled && plan.isHost && <button className="start-journey" onClick={() => onAction(plan.id, "start")}><Play size={16} /> Start journey</button>}
-              {(canCreateChat || canOpenChat) && (
-                <button className="journey-chat-action" onClick={() => onOpenChat(plan)}>
-                  <MessageCircle size={16} /> {canOpenChat ? "Open journey chat" : "Create journey chat"}
-                </button>
-              )}
-              {started && participant && (
-                <>
-                  <button onClick={() => onAction(plan.id, "checkin")}><Flag size={16} /> Start check-in</button>
-                  <button className="safe-action" onClick={() => onAction(plan.id, "safe")}><CheckCircle2 size={16} /> I’m safe</button>
-                </>
-              )}
-              {started && plan.isHost && <button className="complete-journey" onClick={() => onAction(plan.id, "complete")}><CheckCircle2 size={16} /> Complete journey</button>}
+
+            <footer className="plan-card-actions">
+              <div className="plan-primary-actions">
+                {scheduled && !plan.isHost && plan.viewerStatus === "none" && (
+                  <button className="plan-cta" onClick={() => onAction(plan.id, "request")}><Users size={16} /> Ask to join</button>
+                )}
+                {scheduled && !plan.isHost && plan.viewerStatus === "requested" && (
+                  <button className="plan-cta" disabled><Clock3 size={16} /> Request pending</button>
+                )}
+                {scheduled && !plan.isHost && plan.viewerStatus === "invited" && (
+                  <button className="plan-cta" onClick={() => onAction(plan.id, "accept_invite")}><Check size={16} /> Join journey</button>
+                )}
+                {scheduled && plan.isHost && (
+                  <button className="plan-cta start-journey" onClick={() => onAction(plan.id, "start")}><Play size={16} /> Start journey</button>
+                )}
+                {(canCreateChat || canOpenChat) && (
+                  <button className="plan-cta journey-chat-action" onClick={() => onOpenChat(plan)}>
+                    <MessageCircle size={16} /> {canOpenChat ? "Open journey chat" : "Create journey chat"}
+                  </button>
+                )}
+                {started && participant && (
+                  <button className="plan-cta safe-action" onClick={() => onAction(plan.id, "safe")}><CheckCircle2 size={16} /> I’m safe</button>
+                )}
+                {started && plan.isHost && (
+                  <button className="plan-cta complete-journey" onClick={() => onAction(plan.id, "complete")}><CheckCircle2 size={16} /> Complete</button>
+                )}
+              </div>
+              <div className="plan-secondary-actions">
+                {scheduled && !plan.isHost && plan.viewerStatus === "invited" && (
+                  <button className="muted" onClick={() => onAction(plan.id, "decline_invite")}><X size={16} /> Decline invite</button>
+                )}
+                {started && participant && (
+                  <button onClick={() => onAction(plan.id, "checkin")}><Flag size={16} /> Check-in</button>
+                )}
+                {plan.isHost && scheduled && (
+                  <button className="muted" onClick={onSafety}><ShieldCheck size={16} /> Safety</button>
+                )}
+              </div>
             </footer>
           </article>
         );
@@ -613,7 +753,7 @@ function ClubsView({
           <span className="club-badge"><Mountain size={24} /></span>
           <small>{club.activityType}</small>
           <h3>{club.name}</h3>
-          <p>{club.description || "A new Roavly outdoor community."}</p>
+          <p>{club.description || "A new Waymark outdoor community."}</p>
           <div><span><MapPin size={14} /> {club.homeBase || "Worldwide"}</span><span><Users size={14} /> {club.memberCount} {club.memberCount === 1 ? "member" : "members"}</span></div>
           <em>Started by @{club.ownerUsername}</em>
           {club.isOwner
@@ -658,6 +798,224 @@ function ChallengesView({ hub, loading }: { hub: HubData; loading: boolean }) {
   );
 }
 
+function EditPlanModal({
+  plan,
+  close,
+  submit,
+}: {
+  plan: AdventurePlan;
+  close: () => void;
+  submit: (payload: object) => Promise<boolean | void> | boolean | void;
+}) {
+  const [form, setForm] = useState(() => ({
+    title: plan.title,
+    activityType: plan.activityType,
+    startsAt: toLocalInput(new Date(plan.startsAt)),
+    location: plan.location,
+    latitude: (plan.latitude ?? null) as number | null,
+    longitude: (plan.longitude ?? null) as number | null,
+    experienceLevel: plan.experienceLevel,
+    pace: plan.pace,
+    equipment: plan.equipment || "",
+    capacity: plan.capacity,
+    visibility: plan.visibility || "public",
+    safetyNotes: plan.safetyNotes || "",
+  }));
+  const [saving, setSaving] = useState(false);
+  function update(key: string, value: string | number | null) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+  return (
+    <Modal title="Edit plan" eyebrow="HOST CONTROLS" close={close}>
+      <form onSubmit={async (event) => {
+        event.preventDefault();
+        if (saving) return;
+        setSaving(true);
+        try {
+          await submit({
+            ...form,
+            startsAt: new Date(form.startsAt).toISOString(),
+            latitude: form.latitude,
+            longitude: form.longitude,
+          });
+        } finally {
+          setSaving(false);
+        }
+      }}>
+        <div className="form-grid single">
+          <label><span>Plan title</span><input required maxLength={80} value={form.title} onChange={(event) => update("title", event.target.value)} /></label>
+          <label><span>Date and time</span><input required type="datetime-local" value={form.startsAt} onChange={(event) => update("startsAt", event.target.value)} /></label>
+          <label><span>Meeting area</span><input required maxLength={160} value={form.location} onChange={(event) => update("location", event.target.value)} /><small>Exact coordinates stay private until people are accepted.</small></label>
+        </div>
+        <div className="form-grid">
+          <label><span>Activity</span><select value={form.activityType} onChange={(event) => update("activityType", event.target.value)}><ActivityOptions /></select></label>
+          <label><span>Experience</span><select value={form.experienceLevel} onChange={(event) => update("experienceLevel", event.target.value)}><option>Beginner friendly</option><option>All levels</option><option>Intermediate</option><option>Experienced</option></select></label>
+          <label><span>Pace</span><select value={form.pace} onChange={(event) => update("pace", event.target.value)}><option>Relaxed</option><option>Flexible</option><option>Steady</option><option>Fast</option></select></label>
+          <label><span>Group capacity</span><input type="number" min={2} max={50} value={form.capacity} onChange={(event) => update("capacity", Number(event.target.value))} /></label>
+          <label><span>Visibility</span><select value={form.visibility} onChange={(event) => update("visibility", event.target.value)}><option value="public">Public</option><option value="friends">Friends</option></select></label>
+        </div>
+        <label><span>Equipment <em>optional</em></span><input maxLength={240} value={form.equipment} onChange={(event) => update("equipment", event.target.value)} placeholder="Water, head torch, waterproof layer…" /></label>
+        <label><span>Safety note <em>optional</em></span><textarea maxLength={300} value={form.safetyNotes} onChange={(event) => update("safetyNotes", event.target.value)} placeholder="Conditions, turnaround time, emergency considerations…" /></label>
+        <footer className="modal-footer"><span><LockKeyhole size={16} /> Accepted members are notified in the journey chat.</span><button type="submit" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></footer>
+      </form>
+    </Modal>
+  );
+}
+
+function GearExploreView({ showToast }: { showToast: (message: string) => void }) {
+  type CatalogProduct = { id: string; brand: string; productName: string };
+  type GearReview = {
+    id: string;
+    catalogId: string;
+    rating: number;
+    body: string;
+    postId: string | null;
+    createdAt: string;
+    authorName: string;
+    authorUsername: string;
+  };
+  const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
+  const [reviews, setReviews] = useState<GearReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState("");
+  const [rating, setRating] = useState(5);
+  const [body, setBody] = useState("");
+  const [postId, setPostId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function loadGear() {
+    setLoading(true);
+    try {
+      const [catalogRes, reviewRes] = await Promise.all([
+        fetch("/api/gear-tags"),
+        fetch("/api/gear-reviews"),
+      ]);
+      const catalogPayload = (await catalogRes.json()) as { catalog?: CatalogProduct[] };
+      const reviewPayload = (await reviewRes.json()) as { reviews?: GearReview[]; error?: string };
+      setCatalog(catalogPayload.catalog || []);
+      setReviews(reviewPayload.reviews || []);
+      if (!selectedId && catalogPayload.catalog?.length) setSelectedId(catalogPayload.catalog[0].id);
+    } catch {
+      showToast("Gear catalog could not load.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadGear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectedReviews = reviews.filter((review) => review.catalogId === selectedId);
+  const average = selectedReviews.length
+    ? selectedReviews.reduce((sum, review) => sum + review.rating, 0) / selectedReviews.length
+    : 0;
+
+  return (
+    <div className="hub-stack gear-explore">
+      <div className="hub-toolbar">
+        <div>
+          <h3>Outdoor gear</h3>
+          <p>Browse curated kit, leave community star reviews, and see disclosed sponsored placements from outdoor brands.</p>
+        </div>
+      </div>
+      <AdSlot placement="explore_gear" />
+      {loading ? <HubLoading /> : (
+        <>
+          <div className="gear-catalog-grid">
+            {catalog.map((product) => {
+              const productReviews = reviews.filter((review) => review.catalogId === product.id);
+              const avg = productReviews.length
+                ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length
+                : 0;
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  className={`gear-product-card ${selectedId === product.id ? "active" : ""}`}
+                  onClick={() => setSelectedId(product.id)}
+                >
+                  <span className="gear-product-icon"><Package size={22} /></span>
+                  <small>{product.brand}</small>
+                  <strong>{product.productName}</strong>
+                  <em>{productReviews.length ? `${avg.toFixed(1)} ★ · ${productReviews.length} reviews` : "No reviews yet"}</em>
+                </button>
+              );
+            })}
+          </div>
+          {selectedId && (
+            <article className="gear-review-panel">
+              <header>
+                <div>
+                  <small>COMMUNITY REVIEWS</small>
+                  <h3>{catalog.find((item) => item.id === selectedId)?.productName}</h3>
+                  <p>{selectedReviews.length ? `${average.toFixed(1)} average from ${selectedReviews.length} reviews` : "Be the first to review this kit."}</p>
+                </div>
+              </header>
+              <form className="gear-review-form" onSubmit={async (event) => {
+                event.preventDefault();
+                if (saving) return;
+                setSaving(true);
+                try {
+                  const response = await fetch("/api/gear-reviews", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      catalogId: selectedId,
+                      rating,
+                      body,
+                      postId: postId.trim() || null,
+                    }),
+                  });
+                  const payload = (await response.json()) as { error?: string };
+                  if (!response.ok) {
+                    showToast(payload.error || "Review could not be saved.");
+                    return;
+                  }
+                  showToast("Thanks — your gear review is live.");
+                  setBody("");
+                  setPostId("");
+                  setRating(5);
+                  await loadGear();
+                } finally {
+                  setSaving(false);
+                }
+              }}>
+                <label><span>Your rating</span>
+                  <div className="gear-star-row">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button key={value} type="button" className={value <= rating ? "on" : ""} onClick={() => setRating(value)} aria-label={`${value} stars`}>
+                        <Star size={18} fill={value <= rating ? "currentColor" : "none"} />
+                      </button>
+                    ))}
+                  </div>
+                </label>
+                <label><span>Short review</span><textarea required maxLength={280} value={body} onChange={(event) => setBody(event.target.value)} placeholder="How did this hold up on trail?" /></label>
+                <label><span>I used this on a journey <em>optional post id</em></span><input maxLength={80} value={postId} onChange={(event) => setPostId(event.target.value)} placeholder="Paste a journey post id if you tagged it" /></label>
+                <button type="submit" disabled={saving}>{saving ? "Posting…" : "Post review"}</button>
+              </form>
+              <div className="gear-review-list">
+                {selectedReviews.length ? selectedReviews.map((review) => (
+                  <article key={review.id}>
+                    <header>
+                      <strong>{review.authorName}</strong>
+                      <small>@{review.authorUsername} · {review.rating}★</small>
+                    </header>
+                    <p>{review.body}</p>
+                    {review.postId && <em>Used on a journey · {review.postId.slice(0, 8)}…</em>}
+                  </article>
+                )) : <p className="gear-review-empty">No community reviews for this product yet.</p>}
+              </div>
+            </article>
+          )}
+          <p className="gear-monetization-note">Sponsored placements use existing ad campaigns from monetization admin / partner paths. Brands do not pay through this Explore surface — disclosed “Sponsored” labels appear when a live campaign is available.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function PlanModal({
   source,
   close,
@@ -694,7 +1052,7 @@ function PlanModal({
         <div className="form-grid single">
           <label><span>Plan title</span><input required maxLength={80} value={form.title} onChange={(event) => update("title", event.target.value)} placeholder="Saturday sunrise hike" /></label>
           <label><span>Date and time</span><input required type="datetime-local" value={form.startsAt} onChange={(event) => update("startsAt", event.target.value)} /></label>
-          <label><span>Meeting area</span><input required maxLength={160} value={form.location} onChange={(event) => update("location", event.target.value)} placeholder="Share a broad area; send exact details after accepting people" /><small>Roavly hides exact coordinates from people who have not been accepted.</small></label>
+          <label><span>Meeting area</span><input required maxLength={160} value={form.location} onChange={(event) => update("location", event.target.value)} placeholder="Share a broad area; send exact details after accepting people" /><small>Waymark hides exact coordinates from people who have not been accepted.</small></label>
         </div>
         <div className="form-grid">
           <label><span>Activity</span><select value={form.activityType} onChange={(event) => update("activityType", event.target.value)}><ActivityOptions /></select></label>
@@ -740,7 +1098,7 @@ function SafetyModal({
   return (
     <Modal title="Your safety circle" eyebrow="PRIVATE CHECK-IN SETUP" close={close}>
       <form onSubmit={(event) => { event.preventDefault(); submit(form); }}>
-        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Roavly. Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving.</p></div>
+        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Waymark. Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving.</p></div>
         <div className="form-grid single">
           <label><span>Contact name</span><input maxLength={80} value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} placeholder="Who should know your plans?" /></label>
           <label><span>Phone or email</span><input maxLength={120} value={form.contactMethod} onChange={(event) => setForm({ ...form, contactMethod: event.target.value })} placeholder="Stored privately with your account" /></label>

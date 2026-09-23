@@ -23,6 +23,7 @@ export const profiles = sqliteTable(
     travelRadiusKm: integer("travel_radius_km").notNull().default(50),
     groupStyle: text("group_style").notNull().default("Social"),
     accessibilityNeeds: text("accessibility_needs").notNull().default(""),
+    avatarKey: text("avatar_key").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
@@ -56,6 +57,7 @@ export const posts = sqliteTable(
     bestTime: text("best_time").notNull().default(""),
     inspiredByPostId: text("inspired_by_post_id"),
     imageKey: text("image_key").notNull().default("grampians"),
+    mediaType: text("media_type").notNull().default("image"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
@@ -319,6 +321,14 @@ export const mobileAuthCodes = sqliteTable(
     index("mobile_auth_codes_expires_idx").on(table.expiresAt),
   ],
 );
+
+export const authAccounts = sqliteTable("auth_accounts", {
+  email: text("email").primaryKey(),
+  passwordHash: text("password_hash").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
 
 export const mobileAuthSessions = sqliteTable(
   "mobile_auth_sessions",
@@ -640,4 +650,43 @@ export const adImpressions = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [index("ad_impressions_campaign_idx").on(table.campaignId)],
+);
+
+export const gearProductReviews = sqliteTable(
+  "gear_product_reviews",
+  {
+    id: text("id").primaryKey(),
+    userEmail: text("user_email").notNull(),
+    catalogId: text("catalog_id").notNull(),
+    rating: integer("rating").notNull(),
+    body: text("body").notNull(),
+    postId: text("post_id"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("gear_product_reviews_catalog_idx").on(table.catalogId),
+    index("gear_product_reviews_user_idx").on(table.userEmail),
+    uniqueIndex("gear_product_reviews_user_catalog_idx").on(table.userEmail, table.catalogId),
+  ],
+);
+
+export const contentReports = sqliteTable(
+  "content_reports",
+  {
+    id: text("id").primaryKey(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    reporterEmail: text("reporter_email").notNull(),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("open"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("content_reports_target_user_idx").on(
+      table.targetType,
+      table.targetId,
+      table.reporterEmail,
+    ),
+    index("content_reports_status_idx").on(table.status),
+  ],
 );

@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Send,
+  Flag,
   ShieldCheck,
   UserRound,
   Users,
@@ -22,6 +23,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 export type MessageFriend = {
   displayName: string;
   username: string;
+  avatarUrl?: string | null;
 };
 
 type ConversationMember = MessageFriend & {
@@ -34,6 +36,7 @@ type ConversationSummary = {
   purpose: "chat" | "journey";
   name: string;
   username: string;
+  avatarUrl?: string | null;
   activityType: string;
   startsAt: string | null;
   location: string;
@@ -57,6 +60,7 @@ type ChatMessage = {
   createdAt: string;
   authorName: string;
   authorUsername: string;
+  authorAvatarUrl?: string | null;
   isMine: boolean;
 };
 
@@ -67,6 +71,7 @@ export function MessagesView({
   onStarted,
   onConversationStarted,
   onUnreadChange,
+  onBlockUser,
   showToast,
 }: {
   friends: MessageFriend[];
@@ -75,6 +80,7 @@ export function MessagesView({
   onStarted: () => void;
   onConversationStarted: () => void;
   onUnreadChange: (count: number) => void;
+  onBlockUser?: (username: string) => Promise<boolean | void> | boolean | void;
   showToast: (message: string) => void;
 }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -386,6 +392,36 @@ export function MessagesView({
     }
   }
 
+  async function reportMessage(message: ChatMessage) {
+    if (!window.confirm("Report this message for a community safety review?")) return;
+    const response = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        targetType: "message",
+        targetId: message.id,
+        reason: "Community safety concern",
+      }),
+    });
+    const payload = (await response.json()) as { reported?: boolean; error?: string };
+    showToast(
+      response.ok
+        ? "Report received. Thank you for protecting the community."
+        : payload.error || "Could not submit the report.",
+    );
+  }
+
+  async function blockActiveDirect() {
+    if (!activeConversation || activeConversation.type !== "direct" || !activeConversation.username) return;
+    if (!onBlockUser) return;
+    const username = activeConversation.username;
+    const blocked = await onBlockUser(username);
+    if (blocked === false) return;
+    setActiveId(null);
+    setMessages([]);
+    await refreshConversations(true);
+  }
+
   async function leaveGroup() {
     if (!activeConversation || activeConversation.type !== "group") return;
     if (!window.confirm(`Leave ${activeConversation.name}?`)) return;
@@ -455,6 +491,9 @@ export function MessagesView({
                 <button className="chat-back" onClick={() => { setActiveId(null); setMessages([]); }} aria-label="Back to conversations"><ArrowLeft size={20} /></button>
                 <ConversationAvatar conversation={activeConversation} />
                 <div><strong>{activeConversation.name}</strong><span>{activeConversation.purpose === "journey" ? `${activeConversation.members.length} members · Journey Together` : activeConversation.type === "group" ? `${activeConversation.members.length} members · private group` : `@${activeConversation.username} · friend`}</span></div>
+                {activeConversation.type === "direct" && onBlockUser && (
+                  <button className="leave-group" type="button" onClick={() => void blockActiveDirect()}>Block</button>
+                )}
                 {activeConversation.type === "group" && <button className="leave-group" onClick={leaveGroup}>Leave</button>}
               </header>
               <div className="chat-safety"><ShieldCheck size={15} /><span>Keep it positive. Only members of this conversation can see these messages.</span></div>
@@ -507,10 +546,31 @@ export function MessagesView({
                       (index === 0 || messages[index - 1].authorUsername !== message.authorUsername);
                     return (
                       <div className={`message-line ${message.isMine ? "mine" : ""}`} key={message.id}>
-                        {!message.isMine && <span className="message-avatar">{initials(message.authorName)}</span>}
+                        {!message.isMine && (
+                          message.authorAvatarUrl ? (
+                            <span className="message-avatar has-image">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={message.authorAvatarUrl} alt="" />
+                            </span>
+                          ) : (
+                            <span className="message-avatar">{initials(message.authorName)}</span>
+                          )
+                        )}
                         <div>
                           {showAuthor && <small>{message.authorName}</small>}
-                          <p>{message.body}</p>
+                          <div className="message-bubble-row">
+                            <p>{message.body}</p>
+                            {!message.isMine && (
+                              <button
+                                type="button"
+                                className="report-message"
+                                aria-label={`Report message from ${message.authorName}`}
+                                onClick={() => void reportMessage(message)}
+                              >
+                                <Flag size={13} />
+                              </button>
+                            )}
+                          </div>
                           <time>{messageTime(message.createdAt)}</time>
                         </div>
                       </div>
@@ -547,7 +607,7 @@ export function MessagesView({
             </div>
             {friends.length ? newChatMode === "direct" ? (
               <div className="new-chat-friends">
-                {friends.map((friend) => <button key={friend.username} onClick={() => startDirect(friend.username)} disabled={creating}><span className="avatar">{initials(friend.displayName)}</span><span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><MessageCircle size={18} /></button>)}
+                {friends.map((friend) => <button key={friend.username} onClick={() => startDirect(friend.username)} disabled={creating}>{friend.avatarUrl ? <span className="avatar has-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={friend.avatarUrl} alt="" /></span> : <span className="avatar">{initials(friend.displayName)}</span>}<span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><MessageCircle size={18} /></button>)}
               </div>
             ) : (
               <form onSubmit={createJourneyTogether}>
@@ -563,7 +623,7 @@ export function MessagesView({
                 <div className="group-friend-list">
                   {friends.map((friend) => {
                     const selected = groupMembers.includes(friend.username);
-                    return <label key={friend.username} className={selected ? "selected" : ""}><input type="checkbox" checked={selected} onChange={() => toggleGroupMember(friend.username)} /><span className="avatar">{initials(friend.displayName)}</span><span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><i>{selected && <Check size={14} />}</i></label>;
+                    return <label key={friend.username} className={selected ? "selected" : ""}><input type="checkbox" checked={selected} onChange={() => toggleGroupMember(friend.username)} />{friend.avatarUrl ? <span className="avatar has-image">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={friend.avatarUrl} alt="" /></span> : <span className="avatar">{initials(friend.displayName)}</span>}<span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span><i>{selected && <Check size={14} />}</i></label>;
                   })}
                 </div>
                 <button className="create-group-button" disabled={creating || groupName.trim().length < 2 || !groupMembers.length || !journeyLocation.trim() || !journeyStartsAt}>{creating ? "Creating…" : "Create Journey Together"}</button>
@@ -579,6 +639,14 @@ export function MessagesView({
 }
 
 function ConversationAvatar({ conversation }: { conversation: ConversationSummary }) {
+  if (conversation.purpose !== "journey" && conversation.type === "direct" && conversation.avatarUrl) {
+    return (
+      <span className="conversation-avatar has-image">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={conversation.avatarUrl} alt="" />
+      </span>
+    );
+  }
   return <span className={`conversation-avatar ${conversation.type === "group" ? "group" : ""} ${conversation.purpose === "journey" ? "journey" : ""}`}>{conversation.purpose === "journey" ? <Mountain size={19} /> : conversation.type === "group" ? <Users size={19} /> : initials(conversation.name)}</span>;
 }
 

@@ -1,9 +1,9 @@
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
+import { isPairBlocked, blockedCounterpartEmails } from "../../blocks";
 import {
   chatMessages,
-  blocks,
   conversationMembers,
   conversations,
   friendships,
@@ -31,7 +31,7 @@ export async function GET() {
     const conversationIds = viewerMemberships.map((membership) => membership.conversationId);
     if (!conversationIds.length) return Response.json({ conversations: [], unreadTotal: 0 });
 
-    const [conversationRows, memberRows, messageRows, profileRows, blockRows] = await Promise.all([
+    const [conversationRows, memberRows, messageRows, blockedEmails] = await Promise.all([
       db
         .select()
         .from(conversations)
@@ -47,21 +47,12 @@ export async function GET() {
         .where(inArray(chatMessages.conversationId, conversationIds))
         .orderBy(desc(chatMessages.createdAt))
         .limit(1000),
-      db.select().from(profiles),
-      db
-        .select()
-        .from(blocks)
-        .where(
-          or(
-            eq(blocks.blockerEmail, user.email),
-            eq(blocks.blockedEmail, user.email),
-          ),
-        ),
+      blockedCounterpartEmails(db, user.email),
     ]);
-    const blockedEmails = new Set(
-      blockRows.flatMap((block) => [block.blockerEmail, block.blockedEmail]),
-    );
-    blockedEmails.delete(user.email);
+    const memberEmails = Array.from(new Set(memberRows.map((member) => member.userEmail)));
+    const profileRows = memberEmails.length
+      ? await db.select().from(profiles).where(inArray(profiles.email, memberEmails))
+      : [];
 
     const now = Date.now();
     const summaries = conversationRows.flatMap((conversation) => {
@@ -89,8 +80,9 @@ export async function GET() {
         .map((item) => {
           const profile = profileRows.find((candidate) => candidate.email === item.userEmail);
           return {
-            displayName: profile?.displayName || "Roavly member",
-            username: profile?.username || "roavly.member",
+            displayName: profile?.displayName || "Waymark member",
+            username: profile?.username || "waymark.member",
+            avatarUrl: profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null,
             isViewer: item.userEmail === user.email,
           };
         });
@@ -113,6 +105,7 @@ export async function GET() {
             ? conversation.name
             : directMember?.displayName || "Direct message",
         username: conversation.type === "direct" ? directMember?.username || "" : "",
+        avatarUrl: conversation.type === "direct" ? directMember?.avatarUrl || null : null,
         activityType: conversation.activityType,
         startsAt: conversation.startsAt,
         location: conversation.location,
@@ -238,6 +231,15 @@ export async function POST(request: Request) {
       { error: "You can only start conversations with accepted friends." },
       { status: 403 },
     );
+  }
+
+  for (const profile of targetProfiles) {
+    if (await isPairBlocked(db, user.email, profile.email)) {
+      return Response.json(
+        { error: "You cannot message this member because one of you has blocked the other." },
+        { status: 403 },
+      );
+    }
   }
 
   if (type === "direct") {

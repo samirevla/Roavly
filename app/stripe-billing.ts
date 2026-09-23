@@ -34,7 +34,7 @@ export async function createStripeCheckout(input: CheckoutInput) {
   });
   appendMetadata(params, input.metadata);
   if (input.mode === "subscription") {
-    if (!input.priceId) throw new Error("The Roavly+ Stripe price is not configured.");
+    if (!input.priceId) throw new Error("The Waymark+ Stripe price is not configured.");
     params.set("line_items[0][price]", input.priceId);
     params.set("line_items[0][quantity]", "1");
     params.set("subscription_data[metadata][user_email]", input.customerEmail);
@@ -163,7 +163,7 @@ export async function transferCreatorPayout(input: { accountId: string; amountCe
     amount: String(input.amountCents),
     currency: config.currency,
     destination: input.accountId,
-    description: "Roavly trail briefing creator payout",
+    description: "Waymark trail briefing creator payout",
     "metadata[creator_email]": input.creatorEmail,
   }));
   return { id: stringField(transfer.id), amount: Number(transfer.amount) || input.amountCents };

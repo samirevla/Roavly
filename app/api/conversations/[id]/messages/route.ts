@@ -1,5 +1,7 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { isPairBlocked } from "../../../../blocks";
+import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
 import {
   chatMessages,
@@ -51,6 +53,20 @@ export async function GET(
     );
   }
 
+  if (conversation.type === "direct") {
+    const members = await db
+      .select()
+      .from(conversationMembers)
+      .where(eq(conversationMembers.conversationId, id));
+    const otherMember = members.find((member) => member.userEmail !== user.email);
+    if (otherMember && (await isPairBlocked(db, user.email, otherMember.userEmail))) {
+      return Response.json(
+        { error: "You cannot message this member because one of you has blocked the other." },
+        { status: 403 },
+      );
+    }
+  }
+
   const rows = await db
     .select()
     .from(chatMessages)
@@ -59,7 +75,7 @@ export async function GET(
     .limit(200);
   const authorEmails = Array.from(new Set(rows.map((message) => message.authorEmail)));
   const authorProfiles = authorEmails.length
-    ? await db.select().from(profiles)
+    ? await db.select().from(profiles).where(inArray(profiles.email, authorEmails))
     : [];
   const now = new Date();
   await db
@@ -74,8 +90,9 @@ export async function GET(
         id: message.id,
         body: message.body,
         createdAt: message.createdAt,
-        authorName: author?.displayName || "Roavly member",
-        authorUsername: author?.username || "roavly.member",
+        authorName: author?.displayName || "Waymark member",
+        authorUsername: author?.username || "waymark.member",
+        authorAvatarUrl: author?.avatarKey ? `/api/media/${author.avatarKey}` : null,
         isMine: message.authorEmail === user.email,
       };
     }),
@@ -88,6 +105,8 @@ export async function POST(
 ) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to send messages." }, { status: 401 });
+  const limited = enforceRateLimit(`messages:${user.email}`, RATE_LIMITS.messages);
+  if (limited) return limited;
 
   const { id } = await params;
   const { db, membership, conversation } = await membershipFor(id, user.email);
@@ -134,6 +153,12 @@ export async function POST(
         { status: 403 },
       );
     }
+    if (await isPairBlocked(db, user.email, otherMember.userEmail)) {
+      return Response.json(
+        { error: "You cannot message this member because one of you has blocked the other." },
+        { status: 403 },
+      );
+    }
   }
 
   const now = new Date();
@@ -165,7 +190,8 @@ export async function POST(
         body,
         createdAt: now,
         authorName: profile?.displayName || user.displayName,
-        authorUsername: profile?.username || "roavly.member",
+        authorUsername: profile?.username || "waymark.member",
+        authorAvatarUrl: profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null,
         isMine: true,
       },
     },

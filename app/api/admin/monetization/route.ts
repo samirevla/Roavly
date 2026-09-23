@@ -36,7 +36,7 @@ function inputDate(value: unknown) {
 
 export async function GET() {
   const user = await requireAdmin();
-  if (!user) return Response.json({ error: "Roavly admin access required." }, { status: 403 });
+  if (!user) return Response.json({ error: "Waymark admin access required." }, { status: 403 });
   const db = await getDb();
   const [pendingTips, reports, partners, placements, challenges, ads] = await Promise.all([
     db.select().from(trailTips).where(eq(trailTips.status, "pending_review")).orderBy(desc(trailTips.createdAt)),
@@ -51,7 +51,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await requireAdmin();
-  if (!user) return Response.json({ error: "Roavly admin access required." }, { status: 403 });
+  if (!user) return Response.json({ error: "Waymark admin access required." }, { status: 403 });
   const payload = (await request.json()) as Record<string, unknown>;
   const action = String(payload.action || "");
   const db = await getDb();
