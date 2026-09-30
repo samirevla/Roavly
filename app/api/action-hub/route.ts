@@ -177,7 +177,7 @@ export async function GET() {
 
   const saved = userSaves.flatMap((save) => {
     const post = savedPosts.find((item) => item.id === save.postId);
-    if (!post) return [];
+    if (!post || post.hiddenAt) return [];
     const author = publicProfiles.get(post.authorEmail);
     return [{
       id: save.id,

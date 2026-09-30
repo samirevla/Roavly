@@ -12,7 +12,30 @@ import { isRoavlyAdmin } from "../../../monetization";
 
 export const dynamic = "force-dynamic";
 
-type TriageAction = "resolve" | "dismiss";
+type TriageAction = "resolve" | "dismiss" | "unhide";
+type ContentTarget = "post" | "comment" | "message";
+
+function isContentTarget(value: string): value is ContentTarget {
+  return value === "post" || value === "comment" || value === "message";
+}
+
+async function setContentHidden(
+  db: Awaited<ReturnType<typeof getDb>>,
+  targetType: string,
+  targetId: string,
+  hidden: boolean,
+) {
+  if (!isContentTarget(targetType) || !targetId) return false;
+  const hiddenAt = hidden ? new Date() : null;
+  if (targetType === "post") {
+    await db.update(posts).set({ hiddenAt }).where(eq(posts.id, targetId));
+  } else if (targetType === "comment") {
+    await db.update(comments).set({ hiddenAt }).where(eq(comments.id, targetId));
+  } else {
+    await db.update(chatMessages).set({ hiddenAt }).where(eq(chatMessages.id, targetId));
+  }
+  return true;
+}
 
 async function requireAdmin() {
   const user = await getChatGPTUser();
@@ -80,18 +103,22 @@ export async function GET() {
   const inbox = openRows.map((row) => {
     let snippet = "";
     let authorEmail: string | null = null;
+    let hidden = false;
     if (row.targetType === "post") {
       const post = postsById.get(row.targetId);
       snippet = snippetOf(post?.caption);
       authorEmail = post?.authorEmail ?? null;
+      hidden = Boolean(post?.hiddenAt);
     } else if (row.targetType === "comment") {
       const comment = commentsById.get(row.targetId);
       snippet = snippetOf(comment?.body);
       authorEmail = comment?.authorEmail ?? null;
+      hidden = Boolean(comment?.hiddenAt);
     } else if (row.targetType === "message") {
       const message = messagesById.get(row.targetId);
       snippet = snippetOf(message?.body);
       authorEmail = message?.authorEmail ?? null;
+      hidden = Boolean(message?.hiddenAt);
     }
     return {
       id: row.id,
@@ -104,6 +131,7 @@ export async function GET() {
       createdAt: row.createdAt,
       snippet,
       authorEmail,
+      hidden,
       contentMissing: !snippet && !authorEmail,
     };
   });
@@ -130,6 +158,7 @@ export async function GET() {
       createdAt: row.createdAt,
       snippet: snippetOf(post?.caption),
       authorEmail: post?.authorEmail ?? null,
+      hidden: Boolean(post?.hiddenAt),
       contentMissing: !post,
     });
   }
@@ -150,14 +179,51 @@ export async function POST(request: Request) {
   const payload = (await request.json()) as {
     reportId?: string;
     action?: TriageAction;
+    targetType?: string;
+    targetId?: string;
   };
   const reportId = String(payload.reportId || "").trim();
   const action = payload.action;
-  if (!reportId || (action !== "resolve" && action !== "dismiss")) {
+  const requestedType = String(payload.targetType || "").trim();
+  const requestedId = String(payload.targetId || "").trim();
+  if (action !== "resolve" && action !== "dismiss" && action !== "unhide") {
+    return Response.json({ error: "Choose a report and resolve or dismiss it." }, { status: 400 });
+  }
+  if (action !== "unhide" && !reportId) {
     return Response.json({ error: "Choose a report and resolve or dismiss it." }, { status: 400 });
   }
 
   const db = await getDb();
+
+  if (action === "unhide") {
+    let targetType = requestedType;
+    let targetId = requestedId;
+    if ((!isContentTarget(targetType) || !targetId) && reportId.startsWith("legacy:")) {
+      const legacyId = reportId.slice("legacy:".length);
+      const [legacy] = await db.select().from(reports).where(eq(reports.id, legacyId)).limit(1);
+      if (legacy) {
+        targetType = "post";
+        targetId = legacy.postId;
+      }
+    }
+    if ((!isContentTarget(targetType) || !targetId) && reportId && !reportId.startsWith("legacy:")) {
+      const [existing] = await db
+        .select()
+        .from(contentReports)
+        .where(eq(contentReports.id, reportId))
+        .limit(1);
+      if (existing && isContentTarget(existing.targetType)) {
+        targetType = existing.targetType;
+        targetId = existing.targetId;
+      }
+    }
+    if (!isContentTarget(targetType) || !targetId) {
+      return Response.json({ error: "Choose the content to unhide." }, { status: 400 });
+    }
+    await setContentHidden(db, targetType, targetId, false);
+    return Response.json({ updated: true, action, hidden: false });
+  }
+
   const nextStatus = action === "resolve" ? "resolved" : "dismissed";
 
   if (reportId.startsWith("legacy:")) {
@@ -189,7 +255,10 @@ export async function POST(request: Request) {
         ),
       );
     await db.delete(reports).where(eq(reports.id, legacyId));
-    return Response.json({ updated: true, action, status: nextStatus });
+    if (action === "resolve") {
+      await setContentHidden(db, "post", legacy.postId, true);
+    }
+    return Response.json({ updated: true, action, status: nextStatus, hidden: action === "resolve" });
   }
 
   const [existing] = await db
@@ -218,5 +287,10 @@ export async function POST(request: Request) {
       );
   }
 
-  return Response.json({ updated: true, action, status: nextStatus });
+  // Dismiss leaves the post, comment, or DM visible. Resolve soft-hides it.
+  if (action === "resolve") {
+    await setContentHidden(db, existing.targetType, existing.targetId, true);
+  }
+
+  return Response.json({ updated: true, action, status: nextStatus, hidden: action === "resolve" });
 }

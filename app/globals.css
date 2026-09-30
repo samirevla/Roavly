@@ -11948,8 +11948,21 @@ button.linkish {
   font-weight: 650;
 }
 .admin-reports-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background: #e5f7ef;
   color: #0f5f45;
+}
+.admin-reports-undo {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 750;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .admin-reports-error {
   background: #fdeceb;

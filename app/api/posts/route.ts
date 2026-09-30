@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { isApprovedEncouragement } from "../../positive-comments";
 import {
@@ -35,7 +35,7 @@ export async function GET() {
   try {
     const db = await getDb();
     const [rawRows, viewerBlocks] = await Promise.all([
-      db.select().from(posts).orderBy(desc(posts.createdAt)).limit(100),
+      db.select().from(posts).where(isNull(posts.hiddenAt)).orderBy(desc(posts.createdAt)).limit(100),
       db
         .select()
         .from(blocks)
@@ -57,7 +57,7 @@ export async function GET() {
         ? db.select().from(reactions).where(inArray(reactions.postId, postIds))
         : Promise.resolve([]),
       postIds.length
-        ? db.select().from(comments).where(inArray(comments.postId, postIds)).orderBy(asc(comments.createdAt))
+        ? db.select().from(comments).where(and(inArray(comments.postId, postIds), isNull(comments.hiddenAt))).orderBy(asc(comments.createdAt))
         : Promise.resolve([]),
       postIds.length
         ? db.select().from(savedJourneys).where(inArray(savedJourneys.postId, postIds))

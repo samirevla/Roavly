@@ -22,6 +22,7 @@ type InboxReport = {
   createdAt: string | number | Date;
   snippet: string;
   authorEmail: string | null;
+  hidden?: boolean;
   contentMissing?: boolean;
 };
 
@@ -49,6 +50,7 @@ export default function AdminReportsPage() {
   const [reports, setReports] = useState<InboxReport[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState("");
+  const [undoHide, setUndoHide] = useState<{ targetType: string; targetId: string } | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -86,30 +88,71 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(""), 2800);
+    const timer = window.setTimeout(() => {
+      setToast("");
+      setUndoHide(null);
+    }, 6000);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  async function triage(reportId: string, action: "resolve" | "dismiss") {
-    setBusyId(reportId);
+  async function triage(report: InboxReport, action: "resolve" | "dismiss") {
+    setBusyId(report.id);
     setError("");
     try {
       const response = await fetch("/api/admin/reports", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reportId, action }),
+        body: JSON.stringify({
+          reportId: report.id,
+          action,
+          targetType: report.targetType,
+          targetId: report.targetId,
+        }),
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
         setError(payload.error || "Could not update that report.");
         return;
       }
-      setReports((current) => current.filter((item) => item.id !== reportId));
-      setToast(action === "resolve" ? "Report resolved." : "Report dismissed.");
+      setReports((current) => current.filter((item) => item.id !== report.id));
+      if (action === "resolve") {
+        setUndoHide({ targetType: report.targetType, targetId: report.targetId });
+        setToast("Report resolved. Hidden from feeds, threads, and DMs.");
+      } else {
+        setUndoHide(null);
+        setToast("Report dismissed. Content stays visible.");
+      }
     } catch {
       setError("Network error while updating the report.");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function unhide(target: { targetType: string; targetId: string }) {
+    setError("");
+    try {
+      const response = await fetch("/api/admin/reports", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "unhide", targetType: target.targetType, targetId: target.targetId }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error || "Could not unhide that content.");
+        return;
+      }
+      setUndoHide(null);
+      setToast("Content is visible again.");
+      setReports((current) =>
+        current.map((item) =>
+          item.targetType === target.targetType && item.targetId === target.targetId
+            ? { ...item, hidden: false }
+            : item,
+        ),
+      );
+    } catch {
+      setError("Network error while unhiding content.");
     }
   }
 
@@ -135,7 +178,16 @@ export default function AdminReportsPage() {
         </div>
       </header>
 
-      {toast ? <div className="admin-reports-toast" role="status">{toast}</div> : null}
+      {toast ? (
+        <div className="admin-reports-toast" role="status">
+          <span>{toast}</span>
+          {undoHide ? (
+            <button type="button" className="admin-reports-undo" onClick={() => void unhide(undoHide)}>
+              Undo hide
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {error ? <div className="admin-reports-error" role="alert">{error}</div> : null}
 
       {state === "loading" ? (
@@ -222,7 +274,7 @@ export default function AdminReportsPage() {
                 <button
                   type="button"
                   disabled={busyId === report.id}
-                  onClick={() => void triage(report.id, "resolve")}
+                  onClick={() => void triage(report, "resolve")}
                 >
                   <CheckCircle2 size={16} />
                   Resolve
@@ -231,11 +283,21 @@ export default function AdminReportsPage() {
                   type="button"
                   className="secondary"
                   disabled={busyId === report.id}
-                  onClick={() => void triage(report.id, "dismiss")}
+                  onClick={() => void triage(report, "dismiss")}
                 >
                   <XCircle size={16} />
                   Dismiss
                 </button>
+                {report.hidden ? (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busyId === report.id}
+                    onClick={() => void unhide({ targetType: report.targetType, targetId: report.targetId })}
+                  >
+                    Unhide
+                  </button>
+                ) : null}
               </div>
             </li>
           ))}

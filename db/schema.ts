@@ -58,6 +58,7 @@ export const posts = sqliteTable(
     inspiredByPostId: text("inspired_by_post_id"),
     imageKey: text("image_key").notNull().default("grampians"),
     mediaType: text("media_type").notNull().default("image"),
+    hiddenAt: integer("hidden_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
@@ -105,6 +106,7 @@ export const comments = sqliteTable(
     postId: text("post_id").notNull(),
     authorEmail: text("author_email").notNull(),
     body: text("body").notNull(),
+    hiddenAt: integer("hidden_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
@@ -176,6 +178,7 @@ export const chatMessages = sqliteTable(
     conversationId: text("conversation_id").notNull(),
     authorEmail: text("author_email").notNull(),
     body: text("body").notNull(),
+    hiddenAt: integer("hidden_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [

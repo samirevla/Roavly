@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
 import { isPairBlocked } from "../../../../blocks";
 import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
@@ -70,7 +70,7 @@ export async function GET(
   const rows = await db
     .select()
     .from(chatMessages)
-    .where(eq(chatMessages.conversationId, id))
+    .where(and(eq(chatMessages.conversationId, id), isNull(chatMessages.hiddenAt)))
     .orderBy(desc(chatMessages.createdAt))
     .limit(200);
   const authorEmails = Array.from(new Set(rows.map((message) => message.authorEmail)));

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { mediaUnavailableResponse } from "../../media-storage";
 import { friendlyUploadError } from "../../photo-upload";
@@ -21,7 +21,7 @@ export async function GET() {
       db
         .select()
         .from(posts)
-        .where(eq(posts.mediaType, "video"))
+        .where(and(eq(posts.mediaType, "video"), isNull(posts.hiddenAt)))
         .orderBy(desc(posts.createdAt))
         .limit(PAGE_SIZE),
       db

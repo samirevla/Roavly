@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
 import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { isApprovedEncouragement } from "../../../../positive-comments";
@@ -26,7 +26,11 @@ export async function POST(
   }
 
   const db = await getDb();
-  const [post] = await db.select({ id: posts.id }).from(posts).where(eq(posts.id, postId)).limit(1);
+  const [post] = await db
+    .select({ id: posts.id })
+    .from(posts)
+    .where(and(eq(posts.id, postId), isNull(posts.hiddenAt)))
+    .limit(1);
   if (!post) return Response.json({ error: "This post no longer exists." }, { status: 404 });
   const [profile] = await db.select().from(profiles).where(eq(profiles.email, user.email)).limit(1);
   const [comment] = await db
@@ -66,10 +70,14 @@ export async function GET(
   const [post] = await db
     .select({ authorEmail: posts.authorEmail })
     .from(posts)
-    .where(eq(posts.id, postId))
+    .where(and(eq(posts.id, postId), isNull(posts.hiddenAt)))
     .limit(1);
   if (!post) return Response.json({ error: "This post no longer exists." }, { status: 404 });
-  const rows = await db.select().from(comments).where(eq(comments.postId, postId)).orderBy(asc(comments.createdAt));
+  const rows = await db
+    .select()
+    .from(comments)
+    .where(and(eq(comments.postId, postId), isNull(comments.hiddenAt)))
+    .orderBy(asc(comments.createdAt));
   const authorEmails = Array.from(new Set(rows.map((comment) => comment.authorEmail)));
   const authorProfiles = authorEmails.length
     ? await db.select().from(profiles).where(inArray(profiles.email, authorEmails))
