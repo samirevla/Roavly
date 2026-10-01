@@ -62,6 +62,7 @@ type ChatMessage = {
   authorUsername: string;
   authorAvatarUrl?: string | null;
   isMine: boolean;
+  isSystem?: boolean;
 };
 
 export function MessagesView({
@@ -545,7 +546,7 @@ export function MessagesView({
                       !message.isMine &&
                       (index === 0 || messages[index - 1].authorUsername !== message.authorUsername);
                     return (
-                      <div className={`message-line ${message.isMine ? "mine" : ""}`} key={message.id}>
+                      <div className={`message-line ${message.isSystem ? "system" : message.isMine ? "mine" : ""}`} key={message.id}>
                         {!message.isMine && (
                           message.authorAvatarUrl ? (
                             <span className="message-avatar has-image">
@@ -560,7 +561,7 @@ export function MessagesView({
                           {showAuthor && <small>{message.authorName}</small>}
                           <div className="message-bubble-row">
                             <p>{message.body}</p>
-                            {!message.isMine && (
+                            {!message.isMine && !message.isSystem && (
                               <button
                                 type="button"
                                 className="report-message"

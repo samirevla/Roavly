@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../../chatgpt-auth";
+import { syncOverdueCheckIns } from "../../../check-in-overdue";
 import { getDb } from "../../../../db";
 import {
   adventurePlans,
@@ -194,7 +195,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .from(conversations)
       .where(eq(conversations.adventurePlanId, id))
       .limit(1);
-    if (existing) return Response.json({ status: "ready", conversationId: existing.id });
+    if (existing) {
+      await syncOverdueCheckIns(db, [id], now);
+      return Response.json({ status: "ready", conversationId: existing.id });
+    }
 
     const acceptedMembers = await db
       .select()
@@ -232,6 +236,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           lastReadAt: now,
         })),
       );
+      await syncOverdueCheckIns(db, [id], now);
       return Response.json({ status: "created", conversationId }, { status: 201 });
     } catch (error) {
       const [raced] = await db

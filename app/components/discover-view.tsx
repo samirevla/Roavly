@@ -59,6 +59,7 @@ type PlanMember = {
   isViewer: boolean;
   checkedInAt: string | null;
   safeAt: string | null;
+  checkInOverdue?: boolean;
 };
 
 type AdventurePlan = {
@@ -88,6 +89,7 @@ type AdventurePlan = {
   members: PlanMember[];
   conversationId: string | null;
   chatExpiresAt: string | null;
+  checkInOverdue?: boolean;
 };
 
 type Club = {
@@ -571,6 +573,7 @@ function PlansView({
         const pendingRequests = plan.members.filter((member) => member.status === "requested");
         const invitedMembers = plan.members.filter((member) => member.status === "invited");
         const acceptedMembers = plan.members.filter((member) => member.status === "accepted");
+        const overdueMembers = acceptedMembers.filter((member) => member.checkInOverdue);
         const canOpenChat = Boolean(
           plan.conversationId &&
           participant &&
@@ -599,6 +602,7 @@ function PlansView({
               </div>
               <div className="plan-hero-aside">
                 <i className={`plan-state ${displayedStatus}`}>{displayedStatus}</i>
+                {plan.checkInOverdue && <i className="plan-state overdue">overdue</i>}
                 {plan.isHost && scheduled && (
                   <button type="button" className="plan-edit-btn" onClick={() => onEdit(plan)}>
                     <Pencil size={14} /> Edit
@@ -621,11 +625,12 @@ function PlansView({
               </div>
               <div className="plan-who-strip" aria-label="Accepted members">
                 {acceptedMembers.length ? acceptedMembers.map((member) => (
-                  <span className="plan-who-chip" key={member.id} title={`@${member.username}`}>
+                  <span className={`plan-who-chip${member.checkInOverdue ? " overdue" : ""}`} key={member.id} title={`@${member.username}`}>
                     {member.avatarUrl
                       ? <img src={member.avatarUrl} alt="" />
                       : <em>{member.displayName.slice(0, 1).toUpperCase()}</em>}
                     <span>{member.displayName.split(" ")[0]}</span>
+                    {member.checkInOverdue && <b>Overdue</b>}
                   </span>
                 )) : (
                   <span className="plan-who-empty">{plan.isHost ? "Invite friends or accept join requests." : "Spots are filling as the host accepts people."}</span>
@@ -645,6 +650,18 @@ function PlansView({
             )}
 
             {plan.safetyNotes && <p className="plan-note"><strong>Host safety note:</strong> {plan.safetyNotes}</p>}
+
+            {started && overdueMembers.length > 0 && (
+              <div className="journey-lifecycle-note overdue">
+                <ShieldCheck size={17} />
+                <span>
+                  <strong>Check-in overdue</strong>
+                  <small>
+                    {overdueMembers.map((member) => member.displayName.split(" ")[0]).join(", ")} {overdueMembers.length === 1 ? "has" : "have"} missed the check-in window without marking I’m safe.
+                  </small>
+                </span>
+              </div>
+            )}
 
             {scheduled && (
               <div className="journey-lifecycle-note">
@@ -1098,7 +1115,7 @@ function SafetyModal({
   return (
     <Modal title="Your safety circle" eyebrow="PRIVATE CHECK-IN SETUP" close={close}>
       <form onSubmit={(event) => { event.preventDefault(); submit(form); }}>
-        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Waymark. Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving.</p></div>
+        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Waymark. If a started journey passes your check-in window without I’m safe, the plan and journey chat show an overdue note. Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving.</p></div>
         <div className="form-grid single">
           <label><span>Contact name</span><input maxLength={80} value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} placeholder="Who should know your plans?" /></label>
           <label><span>Phone or email</span><input maxLength={120} value={form.contactMethod} onChange={(event) => setForm({ ...form, contactMethod: event.target.value })} placeholder="Stored privately with your account" /></label>

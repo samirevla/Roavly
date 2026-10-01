@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { isSystemChatAuthor, syncOverdueCheckIns } from "../../../../check-in-overdue";
 import { isPairBlocked } from "../../../../blocks";
 import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
@@ -52,6 +53,9 @@ export async function GET(
       { status: 410 },
     );
   }
+  if (conversation.purpose === "journey" && conversation.adventurePlanId) {
+    await syncOverdueCheckIns(db, [conversation.adventurePlanId]);
+  }
 
   if (conversation.type === "direct") {
     const members = await db
@@ -86,14 +90,16 @@ export async function GET(
   return Response.json({
     messages: rows.reverse().map((message) => {
       const author = authorProfiles.find((profile) => profile.email === message.authorEmail);
+      const isSystem = isSystemChatAuthor(message.authorEmail);
       return {
         id: message.id,
         body: message.body,
         createdAt: message.createdAt,
-        authorName: author?.displayName || "Waymark member",
-        authorUsername: author?.username || "waymark.member",
-        authorAvatarUrl: author?.avatarKey ? `/api/media/${author.avatarKey}` : null,
-        isMine: message.authorEmail === user.email,
+        authorName: isSystem ? "Waymark" : author?.displayName || "Waymark member",
+        authorUsername: isSystem ? "waymark" : author?.username || "waymark.member",
+        authorAvatarUrl: isSystem ? null : author?.avatarKey ? `/api/media/${author.avatarKey}` : null,
+        isMine: !isSystem && message.authorEmail === user.email,
+        isSystem,
       };
     }),
   });

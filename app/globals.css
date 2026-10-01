@@ -7660,6 +7660,16 @@ button:not(:disabled):active {
   background: #eef7f2;
 }
 
+.journey-lifecycle-note.overdue {
+  background: #fff4ee;
+  color: #6d3b24;
+}
+
+.journey-lifecycle-note.overdue > svg,
+.journey-lifecycle-note.overdue strong {
+  color: #9a3412;
+}
+
 .plan-state.scheduled {
   color: #4f675e;
   background: #edf2ef;
@@ -7678,6 +7688,11 @@ button:not(:disabled):active {
 .plan-state.cancelled {
   color: #7c625f;
   background: #f5ecea;
+}
+
+.plan-state.overdue {
+  color: #9a3412;
+  background: #ffedd5;
 }
 
 .invite-friends-panel {
@@ -11155,6 +11170,19 @@ button.linkish {
   white-space: nowrap;
 }
 
+.plan-who-chip.overdue {
+  background: #fff1e8;
+  color: #9a3412;
+  max-width: none;
+}
+
+.plan-who-chip.overdue > b {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .plan-who-empty {
   color: #73827c;
   font-size: 12px;
@@ -11834,6 +11862,17 @@ button.linkish {
   gap: 4px;
 }
 .message-line.mine .message-bubble-row { justify-content: flex-end; }
+.message-line.system {
+  justify-content: center;
+}
+.message-line.system > div {
+  max-width: min(92%, 420px);
+}
+.message-line.system p {
+  background: #f4f7f5;
+  color: #31564a;
+  font-style: italic;
+}
 .message-bubble-row .report-message {
   width: 26px;
   height: 26px;

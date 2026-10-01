@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { syncOverdueCheckIns } from "../../check-in-overdue";
 import { getDb } from "../../../db";
 import {
   adventurePlans,
@@ -144,6 +145,20 @@ export async function GET() {
       : plan,
   );
 
+  const participantPlanIds = normalisedPlans
+    .filter(
+      (plan) =>
+        plan.hostEmail === user.email ||
+        allPlanMembers.some(
+          (member) =>
+            member.planId === plan.id &&
+            member.userEmail === user.email &&
+            member.status === "accepted",
+        ),
+    )
+    .map((plan) => plan.id);
+  const overdueByMember = await syncOverdueCheckIns(db, participantPlanIds, now);
+
   const savedPostIds = userSaves.map((save) => save.postId);
   const savedPosts = savedPostIds.length
     ? await db.select().from(posts).where(inArray(posts.id, savedPostIds))
@@ -197,15 +212,17 @@ export async function GET() {
 
   const plans = normalisedPlans.map((plan) => {
     const host = publicProfiles.get(plan.hostEmail);
-    const members = allPlanMembers
-      .filter((member) => member.planId === plan.id)
-      .map((member) => ({
-        ...member,
-        displayName: publicProfiles.get(member.userEmail)?.displayName || "Waymark member",
-        username: publicProfiles.get(member.userEmail)?.username || "waymark.member",
-        avatarUrl: publicProfiles.get(member.userEmail)?.avatarUrl || null,
-        isViewer: member.userEmail === user.email,
-      }));
+    const planMemberRows = allPlanMembers.filter((member) => member.planId === plan.id);
+    const viewerRow = planMemberRows.find((member) => member.userEmail === user.email);
+    const canSeeOverdue = plan.hostEmail === user.email || viewerRow?.status === "accepted";
+    const members = planMemberRows.map((member) => ({
+      ...member,
+      displayName: publicProfiles.get(member.userEmail)?.displayName || "Waymark member",
+      username: publicProfiles.get(member.userEmail)?.username || "waymark.member",
+      avatarUrl: publicProfiles.get(member.userEmail)?.avatarUrl || null,
+      isViewer: member.userEmail === user.email,
+      checkInOverdue: canSeeOverdue && Boolean(overdueByMember.get(member.id)?.overdue),
+    }));
     const viewerMembership = members.find((member) => member.isViewer);
     const journeyChat = journeyChats.find(
       (conversation) => conversation.adventurePlanId === plan.id,
@@ -229,6 +246,7 @@ export async function GET() {
       longitude: plan.hostEmail === user.email || viewerMembership?.status === "accepted" ? plan.longitude : null,
       conversationId: chatAvailable && canOpenChat ? journeyChat?.id || null : null,
       chatExpiresAt: chatAvailable && canOpenChat ? journeyChat?.expiresAt || null : null,
+      checkInOverdue: canSeeOverdue && members.some((member) => member.checkInOverdue),
     };
   });
 

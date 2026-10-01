@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { syncOverdueCheckIns } from "../../check-in-overdue";
 import { getDb } from "../../../db";
 import { isPairBlocked, blockedCounterpartEmails } from "../../blocks";
 import {
@@ -31,12 +32,17 @@ export async function GET() {
     const conversationIds = viewerMemberships.map((membership) => membership.conversationId);
     if (!conversationIds.length) return Response.json({ conversations: [], unreadTotal: 0 });
 
-    const [conversationRows, memberRows, messageRows, blockedEmails] = await Promise.all([
-      db
-        .select()
-        .from(conversations)
-        .where(inArray(conversations.id, conversationIds))
-        .orderBy(desc(conversations.updatedAt)),
+    const conversationRows = await db
+      .select()
+      .from(conversations)
+      .where(inArray(conversations.id, conversationIds))
+      .orderBy(desc(conversations.updatedAt));
+    const journeyPlanIds = conversationRows.flatMap((conversation) =>
+      conversation.adventurePlanId ? [conversation.adventurePlanId] : [],
+    );
+    if (journeyPlanIds.length) await syncOverdueCheckIns(db, journeyPlanIds);
+
+    const [memberRows, messageRows, blockedEmails] = await Promise.all([
       db
         .select()
         .from(conversationMembers)
