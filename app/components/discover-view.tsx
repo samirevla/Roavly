@@ -133,6 +133,7 @@ type HubData = {
   clubs: Club[];
   challenges: Challenge[];
   safety: SafetyProfile;
+  smsAlertsEnabled?: boolean;
   passport: {
     outdoorMinutes: number;
     journeyCount: number;
@@ -148,6 +149,7 @@ const emptyHub: HubData = {
   clubs: [],
   challenges: [],
   safety: { contactName: "", contactMethod: "", defaultCheckInMinutes: 120 },
+  smsAlertsEnabled: false,
   passport: {
     outdoorMinutes: 0,
     journeyCount: 0,
@@ -453,6 +455,7 @@ export function DiscoverView({
       {safetyOpen && (
         <SafetyModal
           safety={hub.safety}
+          smsAlertsEnabled={Boolean(hub.smsAlertsEnabled)}
           close={() => setSafetyOpen(false)}
           submit={async (payload) => {
             const response = await fetch("/api/safety", {
@@ -1104,10 +1107,12 @@ function ClubModal({ close, submit }: { close: () => void; submit: (payload: obj
 
 function SafetyModal({
   safety,
+  smsAlertsEnabled,
   close,
   submit,
 }: {
   safety: SafetyProfile;
+  smsAlertsEnabled: boolean;
   close: () => void;
   submit: (payload: SafetyProfile) => void;
 }) {
@@ -1115,7 +1120,7 @@ function SafetyModal({
   return (
     <Modal title="Your safety circle" eyebrow="PRIVATE CHECK-IN SETUP" close={close}>
       <form onSubmit={(event) => { event.preventDefault(); submit(form); }}>
-        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Waymark. If a started journey passes your check-in window without I’m safe, the plan and journey chat show an overdue note. Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving.</p></div>
+        <div className="safety-explainer"><ShieldCheck size={24} /><p>This gives you a consistent safety contact and check-in rhythm inside Waymark. If a started journey passes your check-in window without I’m safe, the plan and journey chat show an overdue note.{smsAlertsEnabled ? "" : " Automated SMS alerts are not enabled yet, so still tell your contact directly before leaving."}</p></div>
         <div className="form-grid single">
           <label><span>Contact name</span><input maxLength={80} value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} placeholder="Who should know your plans?" /></label>
           <label><span>Phone or email</span><input maxLength={120} value={form.contactMethod} onChange={(event) => setForm({ ...form, contactMethod: event.target.value })} placeholder="Stored privately with your account" /></label>

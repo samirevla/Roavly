@@ -262,6 +262,15 @@ export const safetyProfiles = sqliteTable("safety_profiles", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+/** One row per participant per check-in window. The id matches the overdue note id. */
+export const checkInSms = sqliteTable("check_in_sms", {
+  id: text("id").primaryKey(),
+  planId: text("plan_id").notNull(),
+  memberId: text("member_id").notNull(),
+  anchorMs: integer("anchor_ms").notNull(),
+  sentAt: integer("sent_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 export const clubs = sqliteTable(
   "clubs",
   {

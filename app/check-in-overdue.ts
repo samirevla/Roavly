@@ -8,6 +8,7 @@ import {
   profiles,
   safetyProfiles,
 } from "../db/schema";
+import { loadTwilioConfig, maybeSendOverdueSms } from "./check-in-sms";
 
 type Database = Awaited<ReturnType<typeof getDb>>;
 
@@ -70,6 +71,7 @@ export function isSystemChatAuthor(email: string) {
  * Read-time overdue check. Posts at most one journey-chat note per participant
  * per check-in window (journey start, or the latest Check-in which clears I’m safe).
  * I’m safe (safeAt) clears the overdue state without deleting the note.
+ * The same read sends at most one safety-contact SMS for that window when Twilio is configured.
  */
 export async function syncOverdueCheckIns(
   db: Database,
@@ -108,7 +110,11 @@ export async function syncOverdueCheckIns(
   const minutesByEmail = new Map(
     safetyRows.map((row) => [row.userEmail, row.defaultCheckInMinutes]),
   );
+  const contactByEmail = new Map(
+    safetyRows.map((row) => [row.userEmail, row.contactMethod]),
+  );
   const nameByEmail = new Map(profileRows.map((row) => [row.email, row.displayName]));
+  const smsConfig = await loadTwilioConfig();
   const chatByPlan = new Map(
     chats
       .filter((chat) => chat.adventurePlanId)
@@ -133,6 +139,16 @@ export async function syncOverdueCheckIns(
       });
       states.set(member.id, { overdue, dueAt: dueAt.toISOString(), minutes });
       if (!overdue) continue;
+
+      await maybeSendOverdueSms(db, {
+        config: smsConfig,
+        planId: plan.id,
+        memberId: member.id,
+        anchor,
+        displayName: nameByEmail.get(member.userEmail) || "A participant",
+        contactMethod: contactByEmail.get(member.userEmail),
+        now,
+      });
 
       const chat = chatByPlan.get(plan.id);
       if (!chat || (chat.expiresAt && chat.expiresAt.getTime() <= now.getTime())) continue;

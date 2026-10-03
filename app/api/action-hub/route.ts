@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { syncOverdueCheckIns } from "../../check-in-overdue";
+import { smsAlertsConfigured } from "../../check-in-sms";
 import { getDb } from "../../../db";
 import {
   adventurePlans,
@@ -285,6 +286,7 @@ export async function GET() {
     saved,
     plans,
     clubs: communityClubs,
+    smsAlertsEnabled: await smsAlertsConfigured(),
     safety: safetyRows[0] || {
       contactName: "",
       contactMethod: "",

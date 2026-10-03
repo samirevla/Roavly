@@ -25,3 +25,7 @@ directory = "./dist/client"
 ROAVLY_ALLOW_SITES_HEADERS = "0"
 AUTH_SESSION_DAYS = "30"
 ROAVLY_ADMIN_EMAILS = "ssemsedinovski@gmail.com"
+
+# Optional overdue-check-in SMS. Not set here. Put them with `wrangler secret put`
+# (values stay off disk): TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER.
+# Absent secrets keep Discover's "SMS not enabled" line and send nothing.

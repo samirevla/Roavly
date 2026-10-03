@@ -93,6 +93,11 @@ echo "    ROAVLY_ALLOW_SITES_HEADERS=0"
 echo "    AUTH_SESSION_DAYS=30"
 echo "    ROAVLY_ADMIN_EMAILS=ssemsedinovski@gmail.com"
 echo
+echo "Optional SMS secrets (not set by this script; absent means no SMS):"
+echo "    wrangler secret put TWILIO_ACCOUNT_SID"
+echo "    wrangler secret put TWILIO_AUTH_TOKEN"
+echo "    wrangler secret put TWILIO_FROM_NUMBER"
+echo
 echo "R2 bucket: roavly-staging-media (BUCKET)"
 echo "Staging URL: https://roavly-staging.ssemsedinovski.workers.dev"
 echo "Done."
