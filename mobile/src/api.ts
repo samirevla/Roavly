@@ -42,7 +42,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     ? ((await response.json()) as { error?: string })
     : { error: await response.text() };
   if (!response.ok) {
-    throw new ApiError(payload.error || "Roavly could not complete that request.", response.status);
+    throw new ApiError(payload.error || "Waymark could not complete that request.", response.status);
   }
   return payload as T;
 }
@@ -72,7 +72,7 @@ export async function signInWithRoavly() {
   }
   const parsed = new URL(result.url);
   const code = parsed.searchParams.get("code");
-  if (!code) throw new Error("Roavly could not complete sign-in.");
+  if (!code) throw new Error("Waymark could not complete sign-in.");
   const payload = await apiFetch<{
     token: string;
     user: Viewer;

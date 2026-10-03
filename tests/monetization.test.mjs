@@ -38,7 +38,11 @@ test("trail tips enforce verification, completion, safety review, preview and pe
   assert.match(tipRoute, /completedThisTrail/);
   assert.match(tipRoute, /pending_review/);
   assert.match(tipRoute, /scanTrailTipRisk/);
-  assert.match(tipRoute, /previewFile/);
+  assert.match(tipRoute, /assertMediaObjectExists/);
+  assert.match(tipRoute, /mediaKey/);
+  assert.match(tipRoute, /previewKey/);
+  assert.doesNotMatch(tipRoute, /arrayBuffer/);
+  assert.match(tipRoute, /uploads\/sign|application\/json/);
   assert.match(purchaseRoute, /useCredit/);
   assert.match(purchaseRoute, /trail_tip_bundle/);
   assert.match(mediaRoute, /Purchase required/);
@@ -85,12 +89,14 @@ test("the product UI can exercise every revenue flow without seeded paid content
   const ui = await source("app/components/monetization-view.tsx");
   const discover = await source("app/components/discover-view.tsx");
   const page = await source("app/page.tsx");
-  for (const label of ["Trail tips", "My library", "Create & earn", "Roavly+", "Local partner", "Sponsored challenge", "Native ad campaign"]) {
+  for (const label of ["Trail tips", "My library", "Create & earn", "Waymark+", "Local partner", "Sponsored challenge", "Native ad campaign"]) {
     assert.match(ui, new RegExp(label.replace(/[+]/g, "\\+"), "i"));
   }
   assert.match(discover, /<MonetizationView/);
   assert.match(page, /<AdSlot placement="feed"/);
   assert.doesNotMatch(ui, /fake purchase|seeded tip|demo seller/i);
+  assert.match(ui, /preparePhotoForUpload/);
+  assert.match(ui, /\/api\/uploads\/sign/);
 });
 
 test("monetization write and library routes reject anonymous callers", async () => {

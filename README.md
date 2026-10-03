@@ -1,6 +1,6 @@
-# Roavly
+# Waymark
 
-Roavly is a positive social platform for outdoor activities. Members share real
+Waymark is a positive social platform for outdoor activities. Members share real
 journeys, discover places on a map, motivate friends, plan group adventures,
 message one another, track time outdoors and unlock achievements.
 
@@ -24,7 +24,7 @@ The current production site is [roavly-app.ssemsedinovski.chatgpt.site](https://
 - Google Maps and Places
 - Expo/React Native iPhone client in `mobile/`
 - Stripe Checkout, Billing and Connect integration points
-- ChatGPT/Sites identity headers for the currently hosted web version
+- Standalone email + password authentication (Sites identity headers optional and off by default)
 
 ## Local web development
 
@@ -32,10 +32,12 @@ Requirements: Node.js `>=22.13.0`, npm and a Linux-compatible shell for the
 bounded build scripts.
 
 ```bash
-npm ci
-cp .env.example .env.local
+npm run setup
 npm run dev
 ```
+
+Or: `npm run install:ci`, copy `.env.example` to `.env.local`, then `npm run dev`.
+Sign up with email/password (see TEST.md). No ChatGPT login required.
 
 Useful commands:
 
@@ -47,7 +49,7 @@ npm run db:generate
 ```
 
 `npm test` builds the deployable Worker and runs the complete source, migration,
-runtime-stress and responsive-layout regression suite.
+standalone-auth, runtime-stress and responsive-layout regression suite.
 
 ## Database and uploads
 
@@ -65,10 +67,14 @@ development-build and TestFlight instructions.
 
 ## Monetization
 
-The codebase contains the foundation for trail-tip purchases, Roavly+ feature
+The codebase contains the foundation for trail-tip purchases, Waymark+ feature
 flags, creator payouts, affiliate gear attribution, local partners, sponsored
 challenges and disclosed native ads. Real payments remain disabled until Stripe
 keys, products and a verified webhook are configured.
+
+## Standalone auth
+
+Local development uses email + password. See TEST.md for the checklist.
 
 ## Handoff
 

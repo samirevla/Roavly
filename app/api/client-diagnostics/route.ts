@@ -1,4 +1,9 @@
 import { getChatGPTUser } from "../../chatgpt-auth";
+import {
+  clientIpFromRequest,
+  enforceRateLimit,
+  RATE_LIMITS,
+} from "../../rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +15,11 @@ function clean(value: unknown, maxLength: number) {
 
 export async function POST(request: Request) {
   const user = await getChatGPTUser();
+  const rateKey = user?.email
+    ? `diagnostics:${user.email}`
+    : `diagnostics:ip:${clientIpFromRequest(request)}`;
+  const limited = enforceRateLimit(rateKey, RATE_LIMITS.diagnostics);
+  if (limited) return limited;
   if (!user) {
     return Response.json({ error: "Sign in to report an upload error." }, { status: 401 });
   }

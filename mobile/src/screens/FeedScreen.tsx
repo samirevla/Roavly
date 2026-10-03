@@ -94,7 +94,7 @@ export function FeedScreen({
             message={
               mode === "Friends"
                 ? "Add friends to see their outdoor journeys here."
-                : "Roavly is intentionally empty until real people share real adventures."
+                : "Waymark is intentionally empty until real people share real adventures."
             }
             action={{
               label: mode === "Friends" ? "View community" : "Share a journey",

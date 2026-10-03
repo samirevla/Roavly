@@ -92,7 +92,15 @@ async function migratedDatabase() {
   return database;
 }
 
+function enableSitesAuthForTests() {
+  globalThis.__ROAVLY_TEST_ENV__ = {
+    ...(globalThis.__ROAVLY_TEST_ENV__ || {}),
+    ROAVLY_ALLOW_SITES_HEADERS: "1",
+  };
+}
+
 function authHeaders(email, name) {
+  enableSitesAuthForTests();
   return {
     "content-type": "application/json",
     "oai-authenticated-user-email": email,

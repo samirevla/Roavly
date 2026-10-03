@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
 import { posts, reactions } from "../../../../../db/schema";
 
@@ -13,6 +14,8 @@ export async function POST(
   if (!user) {
     return Response.json({ error: "Sign in to motivate this journey." }, { status: 401 });
   }
+  const limited = enforceRateLimit(`motivate:${user.email}`, RATE_LIMITS.motivate);
+  if (limited) return limited;
 
   const { id: postId } = await context.params;
   const db = await getDb();

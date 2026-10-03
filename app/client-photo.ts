@@ -174,7 +174,7 @@ async function convertHeicPhoto(source: File): Promise<File> {
       throw new Error(
         detail.includes("too long")
           ? detail
-          : "This iPhone photo could not be opened. Roavly recorded the error—try choosing the photo once more.",
+          : "This iPhone photo could not be opened. Waymark recorded the error—try choosing the photo once more.",
       );
     }
   }
@@ -183,7 +183,7 @@ async function convertHeicPhoto(source: File): Promise<File> {
 export async function preparePhotoForUpload(source: File): Promise<PreparedPhoto> {
   if (!source.size) throw new Error("Choose a photo for your journey.");
   if (source.size > MAX_SOURCE_PHOTO_BYTES) {
-    throw new Error("Choose a photo smaller than 30 MB. Roavly will optimise it for you.");
+    throw new Error("Choose a photo smaller than 30 MB. Waymark will optimise it for you.");
   }
 
   let file = source;

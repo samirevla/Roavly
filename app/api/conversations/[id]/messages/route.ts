@@ -1,5 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getChatGPTUser } from "../../../../chatgpt-auth";
+import { isSystemChatAuthor, syncOverdueCheckIns } from "../../../../check-in-overdue";
+import { isPairBlocked } from "../../../../blocks";
+import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { getDb } from "../../../../../db";
 import {
   chatMessages,
@@ -50,16 +53,33 @@ export async function GET(
       { status: 410 },
     );
   }
+  if (conversation.purpose === "journey" && conversation.adventurePlanId) {
+    await syncOverdueCheckIns(db, [conversation.adventurePlanId]);
+  }
+
+  if (conversation.type === "direct") {
+    const members = await db
+      .select()
+      .from(conversationMembers)
+      .where(eq(conversationMembers.conversationId, id));
+    const otherMember = members.find((member) => member.userEmail !== user.email);
+    if (otherMember && (await isPairBlocked(db, user.email, otherMember.userEmail))) {
+      return Response.json(
+        { error: "You cannot message this member because one of you has blocked the other." },
+        { status: 403 },
+      );
+    }
+  }
 
   const rows = await db
     .select()
     .from(chatMessages)
-    .where(eq(chatMessages.conversationId, id))
+    .where(and(eq(chatMessages.conversationId, id), isNull(chatMessages.hiddenAt)))
     .orderBy(desc(chatMessages.createdAt))
     .limit(200);
   const authorEmails = Array.from(new Set(rows.map((message) => message.authorEmail)));
   const authorProfiles = authorEmails.length
-    ? await db.select().from(profiles)
+    ? await db.select().from(profiles).where(inArray(profiles.email, authorEmails))
     : [];
   const now = new Date();
   await db
@@ -70,13 +90,16 @@ export async function GET(
   return Response.json({
     messages: rows.reverse().map((message) => {
       const author = authorProfiles.find((profile) => profile.email === message.authorEmail);
+      const isSystem = isSystemChatAuthor(message.authorEmail);
       return {
         id: message.id,
         body: message.body,
         createdAt: message.createdAt,
-        authorName: author?.displayName || "Roavly member",
-        authorUsername: author?.username || "roavly.member",
-        isMine: message.authorEmail === user.email,
+        authorName: isSystem ? "Waymark" : author?.displayName || "Waymark member",
+        authorUsername: isSystem ? "waymark" : author?.username || "waymark.member",
+        authorAvatarUrl: isSystem ? null : author?.avatarKey ? `/api/media/${author.avatarKey}` : null,
+        isMine: !isSystem && message.authorEmail === user.email,
+        isSystem,
       };
     }),
   });
@@ -88,6 +111,8 @@ export async function POST(
 ) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to send messages." }, { status: 401 });
+  const limited = enforceRateLimit(`messages:${user.email}`, RATE_LIMITS.messages);
+  if (limited) return limited;
 
   const { id } = await params;
   const { db, membership, conversation } = await membershipFor(id, user.email);
@@ -134,6 +159,12 @@ export async function POST(
         { status: 403 },
       );
     }
+    if (await isPairBlocked(db, user.email, otherMember.userEmail)) {
+      return Response.json(
+        { error: "You cannot message this member because one of you has blocked the other." },
+        { status: 403 },
+      );
+    }
   }
 
   const now = new Date();
@@ -165,7 +196,8 @@ export async function POST(
         body,
         createdAt: now,
         authorName: profile?.displayName || user.displayName,
-        authorUsername: profile?.username || "roavly.member",
+        authorUsername: profile?.username || "waymark.member",
+        authorAvatarUrl: profile?.avatarKey ? `/api/media/${profile.avatarKey}` : null,
         isMine: true,
       },
     },
