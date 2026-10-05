@@ -12,6 +12,7 @@ export const NOTIFICATION_TYPES = [
   "plan_join",
   "plan_accepted",
   "plan_update",
+  "journey_reminder",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

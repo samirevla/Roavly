@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { syncOverdueCheckIns } from "../../check-in-overdue";
+import { sendDueJourneyReminders } from "../../journey-reminders";
 import { smsAlertsConfigured } from "../../check-in-sms";
 import { getDb } from "../../../db";
 import {
@@ -159,6 +160,7 @@ export async function GET() {
     )
     .map((plan) => plan.id);
   const overdueByMember = await syncOverdueCheckIns(db, participantPlanIds, now);
+  await sendDueJourneyReminders(db, now);
 
   const savedPostIds = userSaves.map((save) => save.postId);
   const savedPosts = savedPostIds.length

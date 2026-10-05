@@ -40,6 +40,8 @@ export function inboxLine(item: InboxItem) {
     case "plan_update":
       if (item.body.startsWith("cancelled")) return `cancelled ${plan}`;
       return item.body ? `updated ${plan}: ${item.body}` : `updated ${plan}`;
+    case "journey_reminder":
+      return item.body || `reminder for ${plan}`;
     default:
       return "has new activity for you";
   }
@@ -155,8 +157,14 @@ export function ActivityInbox({
                     <i className="inbox-type-icon" aria-hidden><TypeIcon type={item.type} /></i>
                   </span>
                   <span className="inbox-copy">
-                    <span className="inbox-line"><strong>{item.actorName}</strong> {inboxLine(item)}</span>
-                    <small>{[item.postLabel, relativeTime(item.createdAt)].filter(Boolean).join(" · ")}</small>
+                    <span className="inbox-line">
+                      {item.type === "journey_reminder" ? (
+                        item.body || inboxLine(item)
+                      ) : (
+                        <><strong>{item.actorName}</strong> {inboxLine(item)}</>
+                      )}
+                    </span>
+                    <small>{[item.type === "journey_reminder" ? null : item.postLabel, relativeTime(item.createdAt)].filter(Boolean).join(" · ")}</small>
                   </span>
                   {!item.read && <i className="inbox-unread-dot" aria-label="Unread" />}
                 </button>

@@ -80,6 +80,7 @@ built.vars = {
 built.assets = { directory: "../client", binding: "ASSETS" };
 built.main = "index.js";
 built.no_bundle = true;
+built.triggers = { crons: ["0 * * * *"] };
 writeFileSync(join(root, "dist/server/wrangler.staging.json"), JSON.stringify(built, null, 2));
 console.log("    wrote dist/server/wrangler.staging.json");
 NODE

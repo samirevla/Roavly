@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { SYSTEM_CHAT_AUTHOR } from "../../check-in-overdue";
 import { blockedCounterpartEmails } from "../../blocks";
 import { getDb } from "../../../db";
 import { adventurePlans, notifications, posts, profiles } from "../../../db/schema";
@@ -63,7 +64,7 @@ export async function GET() {
       body: row.body,
       read: Boolean(row.readAt),
       createdAt: row.createdAt,
-      actorName: actor?.displayName || "Waymark member",
+      actorName: row.actorEmail === SYSTEM_CHAT_AUTHOR ? "Waymark" : (actor?.displayName || "Waymark member"),
       actorUsername: actor?.username || "waymark.member",
       actorAvatarUrl: actor?.avatarKey ? `/api/media/${actor.avatarKey}` : null,
       postLabel: post ? [post.activityType, post.location].filter(Boolean).join(" · ") : null,

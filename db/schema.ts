@@ -281,7 +281,7 @@ export const notifications = sqliteTable(
     id: text("id").primaryKey(),
     recipientEmail: text("recipient_email").notNull(),
     actorEmail: text("actor_email").notNull(),
-    /** comment | motivate | plan_request | plan_join | plan_accepted | plan_update */
+    /** comment | motivate | plan_request | plan_join | plan_accepted | plan_update | journey_reminder */
     type: text("type").notNull(),
     postId: text("post_id"),
     planId: text("plan_id"),
