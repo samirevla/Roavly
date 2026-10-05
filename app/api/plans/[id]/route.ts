@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { getChatGPTUser } from "../../../chatgpt-auth";
 import { syncOverdueCheckIns } from "../../../check-in-overdue";
+import { notify, notifyMany } from "../../../notifications";
 import { getDb } from "../../../../db";
 import {
   adventurePlans,
@@ -151,6 +152,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .update(conversations)
       .set({ expiresAt: now, updatedAt: now })
       .where(eq(conversations.adventurePlanId, id));
+    const cancelledFor = await db
+      .select({ userEmail: planMembers.userEmail })
+      .from(planMembers)
+      .where(and(eq(planMembers.planId, id), eq(planMembers.status, "accepted")));
+    await notifyMany(db, cancelledFor.map((member) => member.userEmail), {
+      actorEmail: user.email,
+      type: "plan_update",
+      planId: id,
+      body: `cancelled “${plan.title}”`,
+    });
     return Response.json({ status: "cancelled" });
   }
 
@@ -358,6 +369,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       );
     }
 
+    if (changes.length) {
+      const onPlan = await db
+        .select({ userEmail: planMembers.userEmail })
+        .from(planMembers)
+        .where(and(eq(planMembers.planId, id), eq(planMembers.status, "accepted")));
+      await notifyMany(db, onPlan.map((member) => member.userEmail), {
+        actorEmail: user.email,
+        type: "plan_update",
+        planId: id,
+        // Server time strings are UTC; keep the inbox line zone-free.
+        body: changes.slice(0, 3).map((change) => (change.startsWith("time → ") ? "new start time" : change)).join("; "),
+      });
+    }
+
     let notified = false;
     if (conversationId && changes.length) {
       const summary = changes.slice(0, 6).join("; ");
@@ -456,6 +481,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .where(eq(planMembers.id, requestedMembership.id));
     if (nextStatus === "accepted") {
       await addMemberToJourneyChat(db, id, memberProfile.email, now);
+      await notify(db, {
+        recipientEmail: memberProfile.email,
+        actorEmail: user.email,
+        type: "plan_accepted",
+        planId: id,
+        body: plan.title,
+      });
     }
     return Response.json({ status: nextStatus });
   }
@@ -482,6 +514,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .set({ status: "accepted", updatedAt: now })
       .where(eq(planMembers.id, membership.id));
     await addMemberToJourneyChat(db, id, user.email, now);
+    await notify(db, {
+      recipientEmail: plan.hostEmail,
+      actorEmail: user.email,
+      type: "plan_join",
+      planId: id,
+      body: plan.title,
+    });
     return Response.json({ status: "accepted" });
   }
 
@@ -503,6 +542,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       status: "requested",
       requestedAt: now,
       updatedAt: now,
+    });
+    await notify(db, {
+      recipientEmail: plan.hostEmail,
+      actorEmail: user.email,
+      type: "plan_request",
+      planId: id,
+      body: plan.title,
     });
     return Response.json({ status: "requested" }, { status: 201 });
   }

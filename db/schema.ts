@@ -271,6 +271,29 @@ export const checkInSms = sqliteTable("check_in_sms", {
   sentAt: integer("sent_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+/**
+ * Activity inbox rows behind the header bell. One row per event per recipient.
+ * Friend requests stay derived from `friendships`; this table covers post and journey activity.
+ */
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    recipientEmail: text("recipient_email").notNull(),
+    actorEmail: text("actor_email").notNull(),
+    /** comment | motivate | plan_request | plan_join | plan_accepted | plan_update */
+    type: text("type").notNull(),
+    postId: text("post_id"),
+    planId: text("plan_id"),
+    body: text("body").notNull().default(""),
+    readAt: integer("read_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("notifications_recipient_created_idx").on(table.recipientEmail, table.createdAt),
+  ],
+);
+
 export const clubs = sqliteTable(
   "clubs",
   {

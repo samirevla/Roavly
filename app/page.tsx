@@ -45,6 +45,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, FormEvent, PointerEvent as ReactPointerEvent, SetStateAction, WheelEvent as ReactWheelEvent } from "react";
 import { DiscoverView } from "./components/discover-view";
+import { ActivityInbox, type InboxItem } from "./components/activity-inbox";
 import { AdSlot } from "./components/ad-slot";
 import { GoogleLocationPicker, SelectedPlace } from "./components/google-location-picker";
 import { MessagesView } from "./components/messages-view";
@@ -257,6 +258,10 @@ export default function HomePage() {
   const [messageTarget, setMessageTarget] = useState<string | null>(null);
   const [conversationTarget, setConversationTarget] = useState<string | null>(null);
   const [discoverStart, setDiscoverStart] = useState<"Map" | "Clips" | "Saved" | "Plans" | "Clubs" | "Challenges" | "Tips" | "Gear">("Map");
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
+  const [inboxUnread, setInboxUnread] = useState(0);
+  const [inboxLoading, setInboxLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -323,6 +328,16 @@ export default function HomePage() {
       } catch {
         // Messages will show a full error if the user opens that screen.
       }
+      try {
+        const response = await fetch("/api/notifications");
+        const payload = (await response.json()) as { unreadCount?: number; notifications?: InboxItem[] };
+        if (active && response.ok) {
+          setInboxUnread(payload.unreadCount ?? 0);
+          setInboxItems(payload.notifications ?? []);
+        }
+      } catch {
+        // The bell keeps its last state; opening it retries.
+      }
     }
     refreshUnread();
     const interval = window.setInterval(refreshUnread, 15000);
@@ -354,6 +369,7 @@ export default function HomePage() {
   );
   const friends = people.filter((person) => person.relationship === "friends");
   const incomingRequests = people.filter((person) => person.relationship === "incoming");
+  const bellCount = inboxUnread + incomingRequests.length;
   const profileName = profile?.displayName || viewer?.displayName || "Waymark member";
   const profileUsername = profile?.username ? `@${profile.username}` : "";
   const initial = profileName.charAt(0).toUpperCase() || "R";
@@ -744,6 +760,80 @@ export default function HomePage() {
     }
   }
 
+  function revealElement(elementId: string, onMissing?: () => void) {
+    let attempts = 0;
+    const tick = () => {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.focus({ preventScroll: true });
+        element.classList.add("inbox-highlight");
+        window.setTimeout(() => element.classList.remove("inbox-highlight"), 2200);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 30) window.setTimeout(tick, 120);
+      else onMissing?.();
+    };
+    window.setTimeout(tick, 80);
+  }
+
+  async function openInbox() {
+    setInboxOpen(true);
+    setInboxLoading(true);
+    try {
+      const [response, friendResponse] = await Promise.all([
+        fetch("/api/notifications"),
+        fetch("/api/friends"),
+      ]);
+      const payload = (await response.json()) as { notifications?: InboxItem[]; unreadCount?: number; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not load your activity.");
+      setInboxItems(payload.notifications ?? []);
+      if (friendResponse.ok) {
+        const friendPayload = (await friendResponse.json()) as { people?: Person[] };
+        if (friendPayload.people) setPeople(friendPayload.people);
+      }
+      if ((payload.unreadCount ?? 0) > 0) {
+        // Opening the bell clears unread. Rows keep their unread styling until the next open.
+        setInboxUnread(0);
+        void fetch("/api/notifications", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "read_all" }),
+        }).catch(() => undefined);
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not load your activity.");
+    } finally {
+      setInboxLoading(false);
+    }
+  }
+
+  function closeInbox() {
+    setInboxOpen(false);
+    setInboxItems((current) => current.map((item) => ({ ...item, read: true })));
+  }
+
+  function openInboxItem(item: InboxItem) {
+    closeInbox();
+    if (item.postId) {
+      const postId = item.postId;
+      setFeedMode("Community");
+      setActiveNav("Feed");
+      revealElement(`post-${postId}`, () => {
+        setActiveNav("Profile");
+        revealElement(`post-${postId}`, () => showToast("That post is no longer in your feed."));
+      });
+      return;
+    }
+    if (item.planId) {
+      const planId = item.planId;
+      setDiscoverStart("Plans");
+      setActiveNav("Explore");
+      revealElement(`plan-${planId}`, () => showToast("That journey is no longer listed in your plans."));
+    }
+  }
+
   function openPostFromMap(postId: string) {
     setFeedMode("Community");
     setActiveNav("Feed");
@@ -838,7 +928,7 @@ export default function HomePage() {
         </nav>
         <div className="desktop-social-actions">
           <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
-          <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications" className="header-notifications"><Bell size={20} />{incomingRequests.length > 0 && <i />}</button>
+          <button onClick={openInbox} aria-label="Activity and friend requests" aria-haspopup="dialog" className="header-notifications"><Bell size={20} />{bellCount > 0 && <i />}</button>
           <button onClick={() => setActiveNav("Messages")} aria-label="Messages" className="header-notifications"><MessageCircle size={20} />{unreadMessages > 0 && <i />}</button>
           <button className="desktop-avatar-button" onClick={() => setActiveNav("Profile")} aria-label="Open profile"><Avatar name={profileName} imageUrl={profileAvatarUrl} /></button>
         </div>
@@ -869,7 +959,7 @@ export default function HomePage() {
           <button className="brand compact" onClick={() => setActiveNav("Feed")} aria-label="Waymark home"><WaymarkLogo /></button>
           <div className="mobile-header-actions">
             <button onClick={openActivityMap} aria-label="Search and explore"><Search size={20} /></button>
-            <button onClick={() => setActiveNav("Friends")} aria-label="Friends and notifications"><Bell size={20} />{incomingRequests.length > 0 && <i>{incomingRequests.length}</i>}</button>
+            <button onClick={openInbox} aria-label="Activity and friend requests" aria-haspopup="dialog"><Bell size={20} />{bellCount > 0 && <i>{Math.min(99, bellCount)}</i>}</button>
             <button onClick={() => setActiveNav("Messages")} aria-label="Messages"><MessageCircle size={20} />{unreadMessages > 0 && <i>{Math.min(99, unreadMessages)}</i>}</button>
           </div>
         </header>
@@ -891,7 +981,7 @@ export default function HomePage() {
           </div>
           <div className="header-actions">
             <button onClick={openActivityMap} aria-label="Search journeys"><Search size={21} /></button>
-            <button onClick={() => setActiveNav("Friends")} aria-label="Open friends and notifications" className="header-notifications"><Bell size={21} />{incomingRequests.length > 0 && <i />}</button>
+            <button onClick={openInbox} aria-label="Open activity and friend requests" aria-haspopup="dialog" className="header-notifications"><Bell size={21} />{bellCount > 0 && <i />}</button>
             <button onClick={() => setActiveNav("Messages")} aria-label="Open messages" className="header-notifications"><MessageCircle size={21} />{unreadMessages > 0 && <i />}</button>
             <button onClick={() => setActiveNav("Profile")} aria-label="Open profile"><Avatar name={profileName} imageUrl={profileAvatarUrl} /></button>
           </div>
@@ -1054,6 +1144,25 @@ export default function HomePage() {
       )}
       {profileOpen && (
         <ProfileModal profile={profile} setProfile={setProfile} saving={savingProfile} close={() => setProfileOpen(false)} submit={saveProfile} showToast={showToast} />
+      )}
+      {inboxOpen && (
+        <ActivityInbox
+          items={inboxItems}
+          loading={inboxLoading}
+          friendRequests={incomingRequests.map((person) => ({
+            username: person.username,
+            displayName: person.displayName,
+            avatarUrl: person.avatarUrl ?? (person.avatarKey ? `/api/media/${person.avatarKey}` : null),
+          }))}
+          onClose={closeInbox}
+          onOpenItem={openInboxItem}
+          onAcceptFriend={(username) => void manageFriend(username, "accept")}
+          onDeclineFriend={(username) => void manageFriend(username, "decline")}
+          onOpenFriends={() => {
+            closeInbox();
+            setActiveNav("Friends");
+          }}
+        />
       )}
       {toast && <div className="toast" role="status"><Sparkles size={18} /> {toast}</div>}
     </main>

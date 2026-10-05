@@ -595,7 +595,7 @@ function PlansView({
           : [];
 
         return (
-          <article className={`plan-card journey-${displayedStatus}`} key={plan.id}>
+          <article className={`plan-card journey-${displayedStatus}`} key={plan.id} id={`plan-${plan.id}`} tabIndex={-1}>
             <header className="plan-card-hero">
               <span className="plan-activity-icon" aria-hidden><CalendarDays size={20} /></span>
               <div className="plan-hero-copy">

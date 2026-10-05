@@ -4,6 +4,7 @@ import { enforceRateLimit, RATE_LIMITS } from "../../../../rate-limit";
 import { isApprovedEncouragement } from "../../../../positive-comments";
 import { getDb } from "../../../../../db";
 import { comments, posts, profiles } from "../../../../../db/schema";
+import { notify } from "../../../../notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export async function POST(
 
   const db = await getDb();
   const [post] = await db
-    .select({ id: posts.id })
+    .select({ id: posts.id, authorEmail: posts.authorEmail })
     .from(posts)
     .where(and(eq(posts.id, postId), isNull(posts.hiddenAt)))
     .limit(1);
@@ -43,6 +44,13 @@ export async function POST(
       createdAt: new Date(),
     })
     .returning();
+  await notify(db, {
+    recipientEmail: post.authorEmail,
+    actorEmail: user.email,
+    type: "comment",
+    postId,
+    body,
+  });
   return Response.json(
     {
       comment: {
