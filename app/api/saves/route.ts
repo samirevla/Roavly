@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       const [savedCount] = await db.select({ value: count() }).from(savedJourneys).where(eq(savedJourneys.userEmail, user.email));
       if ((savedCount?.value || 0) >= config.freeSavedTripsLimit) {
         return Response.json({
-          error: `Free accounts can save up to ${config.freeSavedTripsLimit} adventures. Roavly+ removes the limit.`,
+          error: `Free accounts can save up to ${config.freeSavedTripsLimit} adventures. Waymark+ removes the limit.`,
           code: "SAVE_LIMIT_REACHED",
         }, { status: 402 });
       }

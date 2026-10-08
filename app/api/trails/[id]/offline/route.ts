@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to download a trail." }, { status: 401 });
-  if (!(await hasFeature(user.email, "offline_maps"))) return Response.json({ error: "Offline trail downloads are included with Roavly+." }, { status: 402 });
+  if (!(await hasFeature(user.email, "offline_maps"))) return Response.json({ error: "Offline trail downloads are included with Waymark+." }, { status: 402 });
   const { id } = await context.params;
   const db = await getDb();
   const [trail] = await db.select().from(trails).where(eq(trails.id, id)).limit(1);
@@ -29,6 +29,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   };
   await emitAnalytics({ eventName: "offline_trail_downloaded", userEmail: user.email, entityType: "trail", entityId: id });
   return new Response(JSON.stringify(document, null, 2), {
-    headers: { "content-type": "application/json", "content-disposition": `attachment; filename="roavly-${trail.id}.json"` },
+    headers: { "content-type": "application/json", "content-disposition": `attachment; filename="waymark-${trail.id}.json"` },
   });
 }

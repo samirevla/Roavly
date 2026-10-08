@@ -156,7 +156,7 @@ export function FriendsScreen({
             message={
               query
                 ? "Try searching their display name, username or home area."
-                : "When friends join Roavly, search their username here and send a request."
+                : "When friends join Waymark, search their username here and send a request."
             }
           />
         }
