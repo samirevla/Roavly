@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Bell, CalendarDays, Heart, MessageCircle, UserCheck, UserPlus, Users, X } from "lucide-react";
+import { Bell, CalendarDays, Heart, MessageCircle, ShieldAlert, ShieldCheck, UserCheck, UserPlus, Users, X } from "lucide-react";
 
 export type InboxItem = {
   id: string;
@@ -24,6 +24,13 @@ export type InboxFriendRequest = {
   avatarUrl?: string | null;
 };
 
+/** System rows (from "Waymark") whose body is the whole line. */
+const SYSTEM_LINE_TYPES = new Set(["journey_reminder", "checkin_overdue", "checkin_safe"]);
+
+export function isSystemLine(item: Pick<InboxItem, "type">) {
+  return SYSTEM_LINE_TYPES.has(item.type);
+}
+
 export function inboxLine(item: InboxItem) {
   const plan = item.planTitle ? `“${item.planTitle}”` : "your journey";
   switch (item.type) {
@@ -42,6 +49,10 @@ export function inboxLine(item: InboxItem) {
       return item.body ? `updated ${plan}: ${item.body}` : `updated ${plan}`;
     case "journey_reminder":
       return item.body || `reminder for ${plan}`;
+    case "checkin_overdue":
+      return item.body || `Check-in overdue on ${plan}`;
+    case "checkin_safe":
+      return item.body || `Overdue check-in on ${plan} is resolved`;
     default:
       return "has new activity for you";
   }
@@ -64,6 +75,8 @@ function TypeIcon({ type }: { type: string }) {
   if (type === "motivate") return <Heart size={13} />;
   if (type === "plan_request") return <UserPlus size={13} />;
   if (type === "plan_join" || type === "plan_accepted") return <Users size={13} />;
+  if (type === "checkin_overdue") return <ShieldAlert size={13} />;
+  if (type === "checkin_safe") return <ShieldCheck size={13} />;
   return <CalendarDays size={13} />;
 }
 
@@ -158,13 +171,13 @@ export function ActivityInbox({
                   </span>
                   <span className="inbox-copy">
                     <span className="inbox-line">
-                      {item.type === "journey_reminder" ? (
+                      {isSystemLine(item) ? (
                         item.body || inboxLine(item)
                       ) : (
                         <><strong>{item.actorName}</strong> {inboxLine(item)}</>
                       )}
                     </span>
-                    <small>{[item.type === "journey_reminder" ? null : item.postLabel, relativeTime(item.createdAt)].filter(Boolean).join(" · ")}</small>
+                    <small>{[isSystemLine(item) ? null : item.postLabel, relativeTime(item.createdAt)].filter(Boolean).join(" · ")}</small>
                   </span>
                   {!item.read && <i className="inbox-unread-dot" aria-label="Unread" />}
                 </button>

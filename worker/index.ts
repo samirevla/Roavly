@@ -4,6 +4,8 @@ import handler from "vinext/server/app-router-entry";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
 import { sendDueJourneyReminders } from "../app/journey-reminders";
+import { activeStartedPlanIds } from "../app/check-in-activity";
+import { syncOverdueCheckIns } from "../app/check-in-overdue";
 
 interface Env {
   ASSETS: Fetcher;
@@ -53,11 +55,22 @@ const worker = {
     return handler.fetch(request, env, ctx);
   },
 
-  /** Hourly: Activity inbox journey reminders ~24h before start. */
+  /** Hourly: journey reminders ~24h before start, and overdue check-in Activity rows. */
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const db = drizzle(env.DB, { schema });
     ctx.waitUntil(
-      sendDueJourneyReminders(drizzle(env.DB, { schema })).catch((error) => {
+      sendDueJourneyReminders(db).catch((error) => {
         console.error("journey reminders scheduled run failed", error);
+      }),
+    );
+    ctx.waitUntil(
+      (async () => {
+        const now = new Date();
+        const planIds = await activeStartedPlanIds(db, now);
+        // Activity rows only: SMS and chat notes stay on their existing read-time path.
+        if (planIds.length) await syncOverdueCheckIns(db, planIds, now, { activityOnly: true });
+      })().catch((error) => {
+        console.error("overdue check-in activity scheduled run failed", error);
       }),
     );
   },

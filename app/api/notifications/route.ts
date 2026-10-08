@@ -1,18 +1,54 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
-import { SYSTEM_CHAT_AUTHOR } from "../../check-in-overdue";
+import { SYSTEM_CHAT_AUTHOR, syncOverdueCheckIns } from "../../check-in-overdue";
 import { blockedCounterpartEmails } from "../../blocks";
 import { getDb } from "../../../db";
-import { adventurePlans, notifications, posts, profiles } from "../../../db/schema";
+import { adventurePlans, notifications, planMembers, posts, profiles } from "../../../db/schema";
 
 export const dynamic = "force-dynamic";
 
 const LIST_LIMIT = 40;
 
+type Db = Awaited<ReturnType<typeof getDb>>;
+
+/**
+ * The bell polls this route, so it is the quickest place to notice a missed check-in on a
+ * journey the viewer is on. Activity rows only (idempotent ids); never blocks the inbox.
+ */
+async function syncViewerOverdueActivity(db: Db, email: string) {
+  try {
+    const now = new Date();
+    const memberships = await db
+      .select({ planId: planMembers.planId })
+      .from(planMembers)
+      .where(and(eq(planMembers.userEmail, email), eq(planMembers.status, "accepted")));
+    const memberPlanIds = memberships.map((row) => row.planId);
+    const plans = await db
+      .select({ id: adventurePlans.id })
+      .from(adventurePlans)
+      .where(
+        and(
+          or(
+            eq(adventurePlans.hostEmail, email),
+            ...(memberPlanIds.length ? [inArray(adventurePlans.id, memberPlanIds)] : []),
+          ),
+          inArray(adventurePlans.status, ["open", "scheduled", "started"]),
+          or(eq(adventurePlans.status, "started"), lte(adventurePlans.startsAt, now)),
+        ),
+      );
+    if (plans.length) {
+      await syncOverdueCheckIns(db, plans.map((plan) => plan.id), now, { activityOnly: true });
+    }
+  } catch (error) {
+    console.error("overdue activity sync failed", error);
+  }
+}
+
 export async function GET() {
   const user = await getChatGPTUser();
   if (!user) return Response.json({ error: "Sign in to see your activity." }, { status: 401 });
   const db = await getDb();
+  await syncViewerOverdueActivity(db, user.email);
 
   const [rows, unreadRows, blocked] = await Promise.all([
     db

@@ -8,6 +8,7 @@ import {
   profiles,
   safetyProfiles,
 } from "../db/schema";
+import { recordOverdueActivity } from "./check-in-activity";
 import { loadTwilioConfig, maybeSendOverdueSms } from "./check-in-sms";
 
 type Database = Awaited<ReturnType<typeof getDb>>;
@@ -72,11 +73,14 @@ export function isSystemChatAuthor(email: string) {
  * per check-in window (journey start, or the latest Check-in which clears I’m safe).
  * I’m safe (safeAt) clears the overdue state without deleting the note.
  * The same read sends at most one safety-contact SMS for that window when Twilio is configured.
+ * Host and other accepted members also get one Activity inbox row per missed window.
+ * `activityOnly` (cron / bell poll) records just the Activity rows: no SMS, no chat note.
  */
 export async function syncOverdueCheckIns(
   db: Database,
   planIds: string[],
   now = new Date(),
+  options: { activityOnly?: boolean } = {},
 ) {
   const states = new Map<string, CheckInOverdueState>();
   const uniqueIds = Array.from(new Set(planIds.filter(Boolean)));
@@ -114,7 +118,7 @@ export async function syncOverdueCheckIns(
     safetyRows.map((row) => [row.userEmail, row.contactMethod]),
   );
   const nameByEmail = new Map(profileRows.map((row) => [row.email, row.displayName]));
-  const smsConfig = await loadTwilioConfig();
+  const smsConfig = options.activityOnly ? null : await loadTwilioConfig();
   const chatByPlan = new Map(
     chats
       .filter((chat) => chat.adventurePlanId)
@@ -139,6 +143,20 @@ export async function syncOverdueCheckIns(
       });
       states.set(member.id, { overdue, dueAt: dueAt.toISOString(), minutes });
       if (!overdue) continue;
+
+      await recordOverdueActivity(db, {
+        plan,
+        acceptedEmails: accepted
+          .filter((row) => row.planId === plan.id)
+          .map((row) => row.userEmail),
+        member,
+        anchor,
+        dueAt,
+        minutes,
+        displayName: nameByEmail.get(member.userEmail) || "A participant",
+        now,
+      });
+      if (options.activityOnly) continue;
 
       await maybeSendOverdueSms(db, {
         config: smsConfig,

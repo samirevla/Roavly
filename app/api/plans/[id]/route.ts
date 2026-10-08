@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getChatGPTUser } from "../../../chatgpt-auth";
-import { syncOverdueCheckIns } from "../../../check-in-overdue";
+import { resolveOverdueActivity, type OverdueResolution } from "../../../check-in-activity";
+import { checkInAnchor, syncOverdueCheckIns } from "../../../check-in-overdue";
 import { notify, notifyMany } from "../../../notifications";
 import { getDb } from "../../../../db";
 import {
@@ -43,6 +44,40 @@ function hasStarted(
     Boolean(plan.startedAt) ||
     plan.startsAt.getTime() <= now.getTime()
   );
+}
+
+/**
+ * Close any overdue-check-in Activity alerts for these participants' current windows:
+ * the people who got the alert each get one "safe" follow-up. Never throws.
+ */
+async function closeOverdueActivity(
+  db: Db,
+  plan: typeof adventurePlans.$inferSelect,
+  members: (typeof planMembers.$inferSelect)[],
+  reasonFor: (member: typeof planMembers.$inferSelect) => OverdueResolution,
+  now: Date,
+) {
+  const open = members.filter((member) => member.status === "accepted" && !member.safeAt);
+  if (!open.length) return;
+  try {
+    const names = await db
+      .select({ email: profiles.email, displayName: profiles.displayName })
+      .from(profiles)
+      .where(inArray(profiles.email, open.map((member) => member.userEmail)));
+    for (const member of open) {
+      await resolveOverdueActivity(db, {
+        planId: plan.id,
+        title: plan.title,
+        memberId: member.id,
+        anchor: checkInAnchor(member, plan),
+        displayName: names.find((row) => row.email === member.userEmail)?.displayName || "A participant",
+        reason: reasonFor(member),
+        now,
+      });
+    }
+  } catch (error) {
+    console.error("closing overdue activity failed", error);
+  }
 }
 
 async function markAutomaticallyStarted(
@@ -192,6 +227,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       .update(adventurePlans)
       .set({ status: "completed", completedAt: now, updatedAt: now })
       .where(eq(adventurePlans.id, id));
+    const finishingMembers = await db
+      .select()
+      .from(planMembers)
+      .where(and(eq(planMembers.planId, id), eq(planMembers.status, "accepted")));
+    await closeOverdueActivity(
+      db,
+      plan,
+      finishingMembers,
+      (member) => (member.userEmail === user.email ? "finished" : "finished_by_host"),
+      now,
+    );
     await db
       .update(conversations)
       .set({ expiresAt, updatedAt: now })
@@ -563,6 +609,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     );
   }
   if (payload.action === "checkin") {
+    await closeOverdueActivity(db, plan, [membership], () => "checkin", now);
     await db
       .update(planMembers)
       .set({ checkedInAt: now, safeAt: null, updatedAt: now })
@@ -570,6 +617,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return Response.json({ status: "checked-in" });
   }
   if (payload.action === "safe") {
+    await closeOverdueActivity(db, plan, [membership], () => "safe", now);
     await db
       .update(planMembers)
       .set({ safeAt: now, updatedAt: now })
