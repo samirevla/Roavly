@@ -55,7 +55,7 @@ const worker = {
     return handler.fetch(request, env, ctx);
   },
 
-  /** Hourly: journey reminders ~24h before start, and overdue check-in Activity rows. */
+  /** Every 5 min on staging (cron in wrangler.staging.toml): journey reminders ~24h before start, and overdue check-in Activity rows. */
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const db = drizzle(env.DB, { schema });
     ctx.waitUntil(

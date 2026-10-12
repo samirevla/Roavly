@@ -30,6 +30,7 @@ ROAVLY_ADMIN_EMAILS = "ssemsedinovski@gmail.com"
 # (values stay off disk): TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER.
 # Absent secrets keep Discover's "SMS not enabled" line and send nothing.
 
-# Hourly journey reminders (~24h before start). Window is 23–25h with catch-up to start.
+# Every 5 min: journey reminders (~24h before start, 23–25h window, idempotent) and
+# overdue check-in Activity rows (activityOnly: no SMS). Staging only.
 [triggers]
-crons = ["0 * * * *"]
+crons = ["*/5 * * * *"]
