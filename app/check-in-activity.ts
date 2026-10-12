@@ -7,6 +7,10 @@ type Database = Awaited<ReturnType<typeof getDb>>;
 /** Activity inbox types. Rows live in the existing notifications table (no migration). */
 export const CHECKIN_OVERDUE_TYPE = "checkin_overdue" as const;
 export const CHECKIN_SAFE_TYPE = "checkin_safe" as const;
+export const CHECKIN_HEADS_UP_TYPE = "checkin_heads_up" as const;
+
+/** The traveller gets one heads-up this long before their own check-in window closes. */
+export const HEADS_UP_LEAD_MS = 15 * 60 * 1000;
 
 /** Do not raise an Activity alert for a window that went overdue more than a day ago. */
 export const OVERDUE_ACTIVITY_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -74,7 +78,7 @@ export function overdueSafeBody(displayName: string, title: string, reason: Over
 
 /**
  * One Activity row per recipient for this missed check-in window. Deterministic ids keep
- * read-time syncs and the hourly cron idempotent. Never throws.
+ * read-time syncs and the 5-minute cron idempotent. Never throws.
  */
 export async function recordOverdueActivity(
   db: Database,
@@ -172,6 +176,61 @@ export async function resolveOverdueActivity(
     return sent;
   } catch (error) {
     console.error("overdue safe activity failed", error);
+    return 0;
+  }
+}
+
+export function headsUpActivityId(planId: string, memberId: string, anchorMs: number) {
+  return `checkin-heads-up:${planId}:${memberId}:${anchorMs}`;
+}
+
+export function headsUpBody(minutesLeft: number, title: string) {
+  const plan = cleanText(title, "your journey");
+  return `Check-in due in ${minutesLeft} min on “${plan}”. Tap to mark I’m safe.`.slice(0, 240);
+}
+
+/** True inside the last 15 minutes of an open window (not yet safe, not yet overdue). */
+export function isHeadsUpDue(input: { dueAt: Date; now: Date; safe: boolean; overdue: boolean }) {
+  if (input.safe || input.overdue) return false;
+  const left = input.dueAt.getTime() - input.now.getTime();
+  return left > 0 && left <= HEADS_UP_LEAD_MS;
+}
+
+/**
+ * One Activity row for the traveller themself, ~15 min before their own window closes.
+ * The id is per window (anchor), so later ticks never duplicate; a Check-in starts a new
+ * window and I'm safe stops it. Never throws.
+ */
+export async function recordHeadsUpActivity(
+  db: Database,
+  input: {
+    plan: { id: string; title: string };
+    member: { id: string; userEmail: string };
+    anchor: Date;
+    dueAt: Date;
+    now: Date;
+  },
+) {
+  try {
+    const minutesLeft = Math.max(1, Math.ceil((input.dueAt.getTime() - input.now.getTime()) / 60000));
+    const inserted = await db
+      .insert(notifications)
+      .values({
+        id: headsUpActivityId(input.plan.id, input.member.id, input.anchor.getTime()),
+        recipientEmail: input.member.userEmail,
+        actorEmail: SYSTEM_ACTOR,
+        type: CHECKIN_HEADS_UP_TYPE,
+        postId: null,
+        planId: input.plan.id,
+        body: headsUpBody(minutesLeft, input.plan.title),
+        readAt: null,
+        createdAt: input.now,
+      })
+      .onConflictDoNothing()
+      .returning({ id: notifications.id });
+    return inserted.length;
+  } catch (error) {
+    console.error("check-in heads-up activity failed", error);
     return 0;
   }
 }

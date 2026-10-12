@@ -728,7 +728,7 @@ function PlansView({
                   </button>
                 )}
                 {started && participant && (
-                  <button className="plan-cta safe-action" onClick={() => onAction(plan.id, "safe")}><CheckCircle2 size={16} /> I’m safe</button>
+                  <button id={`plan-${plan.id}-safe`} className="plan-cta safe-action" onClick={() => onAction(plan.id, "safe")}><CheckCircle2 size={16} /> I’m safe</button>
                 )}
                 {started && plan.isHost && (
                   <button className="plan-cta complete-journey" onClick={() => onAction(plan.id, "complete")}><CheckCircle2 size={16} /> Complete</button>

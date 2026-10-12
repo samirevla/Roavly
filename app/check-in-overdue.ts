@@ -8,7 +8,7 @@ import {
   profiles,
   safetyProfiles,
 } from "../db/schema";
-import { recordOverdueActivity } from "./check-in-activity";
+import { isHeadsUpDue, recordHeadsUpActivity, recordOverdueActivity } from "./check-in-activity";
 import { loadTwilioConfig, maybeSendOverdueSms } from "./check-in-sms";
 
 type Database = Awaited<ReturnType<typeof getDb>>;
@@ -73,7 +73,8 @@ export function isSystemChatAuthor(email: string) {
  * per check-in window (journey start, or the latest Check-in which clears I’m safe).
  * I’m safe (safeAt) clears the overdue state without deleting the note.
  * The same read sends at most one safety-contact SMS for that window when Twilio is configured.
- * Host and other accepted members also get one Activity inbox row per missed window.
+ * Host and other accepted members also get one Activity inbox row per missed window,
+ * and the traveller gets one heads-up row ~15 min before their own window closes.
  * `activityOnly` (cron / bell poll) records just the Activity rows: no SMS, no chat note.
  */
 export async function syncOverdueCheckIns(
@@ -142,6 +143,11 @@ export async function syncOverdueCheckIns(
         now,
       });
       states.set(member.id, { overdue, dueAt: dueAt.toISOString(), minutes });
+      const started =
+        plan.status === "started" || Boolean(plan.startedAt) || plan.startsAt.getTime() <= now.getTime();
+      if (started && isHeadsUpDue({ dueAt, now, safe: Boolean(member.safeAt), overdue })) {
+        await recordHeadsUpActivity(db, { plan, member, anchor, dueAt, now });
+      }
       if (!overdue) continue;
 
       await recordOverdueActivity(db, {

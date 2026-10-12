@@ -356,3 +356,41 @@ test("Check-in also closes the alert, and a host finish closes a member’s aler
   assert.match(closed[0].body, /Overdue check-in closed: “Close Track” was marked finished before Casey Member marked I’m safe/);
   assert.equal((await ofType(worker, env, member, "checkin_safe")).length, 0);
 });
+
+test("the traveller gets one check-in heads-up ~15 min before their window closes", async () => {
+  const database = await migratedDatabase();
+  const worker = await builtWorker();
+  const env = baseEnv(database);
+
+  const host = await signup(worker, env, "host.hu@example.com", "Heads Host");
+  const member = await signup(worker, env, "member.hu@example.com", "Hana Member");
+  const early = await signup(worker, env, "early.hu@example.com", "Early Eli");
+  await setCheckInMinutes(worker, env, member, 60);
+  await setCheckInMinutes(worker, env, early, 60);
+  await setCheckInMinutes(worker, env, host, 120);
+
+  const planId = await startedJourney(worker, env, database, host, [
+    { cookie: member, email: "member.hu@example.com" },
+    { cookie: early, email: "early.hu@example.com" },
+  ], "Heads Up Hill");
+  // Early Eli marks I’m safe before the 15-minute mark.
+  await planAction(worker, env, early, planId, { action: "safe" });
+  database.prepare("DELETE FROM notifications").run();
+  // 45 min into a 60 min window: 15 min left.
+  await runCron(worker, env);
+  const mine = await ofType(worker, env, member, "checkin_heads_up");
+  assert.equal(mine.length, 1, JSON.stringify(mine));
+  assert.equal(mine[0].planId, planId);
+  assert.equal(mine[0].actorName, "Waymark");
+  assert.match(mine[0].body, /Check-in due in 15 min on “Heads Up Hill”/);
+  const ids = database.prepare("SELECT id FROM notifications WHERE type = 'checkin_heads_up'").all().map((r) => r.id);
+  assert.equal(ids.length, 1, "host (120 min window) and safe member get none");
+  assert.ok(ids[0].startsWith(`checkin-heads-up:${planId}:`));
+  assert.equal((await ofType(worker, env, early, "checkin_heads_up")).length, 0);
+
+  // Later ticks and read-time syncs do not duplicate.
+  await runCron(worker, env);
+  await runCron(worker, env);
+  await inbox(worker, env, member);
+  assert.equal((await ofType(worker, env, member, "checkin_heads_up")).length, 1);
+});

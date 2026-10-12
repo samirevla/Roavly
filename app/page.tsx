@@ -830,7 +830,12 @@ export default function HomePage() {
       const planId = item.planId;
       setDiscoverStart("Plans");
       setActiveNav("Explore");
-      revealElement(`plan-${planId}`, () => showToast("That journey is no longer listed in your plans."));
+      const missing = () => showToast("That journey is no longer listed in your plans.");
+      if (item.type === "checkin_heads_up") {
+        revealElement(`plan-${planId}-safe`, () => revealElement(`plan-${planId}`, missing));
+        return;
+      }
+      revealElement(`plan-${planId}`, missing);
     }
   }
 

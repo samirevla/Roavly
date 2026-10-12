@@ -7,7 +7,7 @@ type Database = Awaited<ReturnType<typeof getDb>>;
 
 export const JOURNEY_REMINDER_TYPE = "journey_reminder" as const;
 
-/** Ideal first fire ~24h out; hourly cron keeps each journey in-window for ~2h. */
+/** Ideal first fire ~24h out; the 5-minute cron re-checks each journey well inside its ~2h window. */
 export const REMINDER_WINDOW_MIN_MS = 23 * 60 * 60 * 1000;
 /** Catch-up ceiling: still remind once if the cron was late, until the journey starts. */
 export const REMINDER_WINDOW_MAX_MS = 25 * 60 * 60 * 1000;
@@ -56,7 +56,7 @@ function hasSafetyContact(row: { contactName: string; contactMethod: string } | 
 
 /**
  * One Activity inbox row per host/accepted member for journeys starting within
- * the next 25 hours. Deterministic ids keep hourly (or read-time) repeats idempotent.
+ * the next 25 hours. Deterministic ids keep cron (or read-time) repeats idempotent.
  */
 export async function sendDueJourneyReminders(db: Database, now = new Date()) {
   const windowEnd = new Date(now.getTime() + REMINDER_WINDOW_MAX_MS);

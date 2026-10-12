@@ -25,7 +25,7 @@ export type InboxFriendRequest = {
 };
 
 /** System rows (from "Waymark") whose body is the whole line. */
-const SYSTEM_LINE_TYPES = new Set(["journey_reminder", "checkin_overdue", "checkin_safe"]);
+const SYSTEM_LINE_TYPES = new Set(["journey_reminder", "checkin_overdue", "checkin_safe", "checkin_heads_up"]);
 
 export function isSystemLine(item: Pick<InboxItem, "type">) {
   return SYSTEM_LINE_TYPES.has(item.type);
@@ -51,6 +51,8 @@ export function inboxLine(item: InboxItem) {
       return item.body || `reminder for ${plan}`;
     case "checkin_overdue":
       return item.body || `Check-in overdue on ${plan}`;
+    case "checkin_heads_up":
+      return item.body || `Check-in due soon on ${plan}`;
     case "checkin_safe":
       return item.body || `Overdue check-in on ${plan} is resolved`;
     default:
@@ -76,7 +78,7 @@ function TypeIcon({ type }: { type: string }) {
   if (type === "plan_request") return <UserPlus size={13} />;
   if (type === "plan_join" || type === "plan_accepted") return <Users size={13} />;
   if (type === "checkin_overdue") return <ShieldAlert size={13} />;
-  if (type === "checkin_safe") return <ShieldCheck size={13} />;
+  if (type === "checkin_safe" || type === "checkin_heads_up") return <ShieldCheck size={13} />;
   return <CalendarDays size={13} />;
 }
 
