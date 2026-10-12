@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { JourneyMapPost } from "./explore-map";
+import { preparePhotoForUpload } from "../client-photo";
 
 type Tip = {
   id: string;
@@ -98,7 +99,7 @@ export function MonetizationView({ posts, showToast }: { posts: JourneyMapPost[]
       const [overviewPayload, trailsPayload, libraryPayload, challengePayload, partnerPayload] = await Promise.all([
         overviewResponse.json(), trailsResponse.json(), libraryResponse.json(), challengeResponse.json(), partnerResponse.json(),
       ]) as [Overview & { error?: string }, { trails?: Trail[]; error?: string }, { purchases?: Purchase[] }, { challenges?: SponsoredChallenge[] }, { placements?: PartnerPlacement[] }];
-      if (!overviewResponse.ok) throw new Error(overviewPayload.error || "Roavly rewards could not load.");
+      if (!overviewResponse.ok) throw new Error(overviewPayload.error || "Waymark rewards could not load.");
       setOverview(overviewPayload);
       setTrails(trailsPayload.trails || []);
       setPurchases(libraryPayload.purchases || []);
@@ -111,7 +112,7 @@ export function MonetizationView({ posts, showToast }: { posts: JourneyMapPost[]
         if (response.ok) setAdmin(await response.json() as AdminData);
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Roavly rewards could not load.");
+      showToast(error instanceof Error ? error.message : "Waymark rewards could not load.");
     } finally { setLoading(false); }
   }
 
@@ -160,22 +161,22 @@ export function MonetizationView({ posts, showToast }: { posts: JourneyMapPost[]
     <div className="revenue-hub">
       <header className="revenue-hero">
         <div><span className="eyebrow">TRAIL KNOWLEDGE, REWARDED</span><h2>Briefings from people who’ve been there.</h2><p>Preview real trail advice, unlock it once, and keep it in your library for every future trip.</p></div>
-        <span className="plus-status"><Gem size={18} /> {overview.entitlements.tier === "plus" ? "Roavly+ active" : "Free explorer"}</span>
+        <span className="plus-status"><Gem size={18} /> {overview.entitlements.tier === "plus" ? "Waymark+ active" : "Free explorer"}</span>
       </header>
-      <nav className="revenue-tabs" aria-label="Trail tips and Roavly rewards">
-        {(["discover", "library", "create", "plus"] as const).map((item) => <button key={item} className={section === item ? "active" : ""} onClick={() => setSection(item)}>{item === "discover" ? "Trail tips" : item === "library" ? `My library${purchases.length ? ` (${purchases.length})` : ""}` : item === "create" ? "Create & earn" : "Roavly+"}</button>)}
+      <nav className="revenue-tabs" aria-label="Trail tips and Waymark rewards">
+        {(["discover", "library", "create", "plus"] as const).map((item) => <button key={item} className={section === item ? "active" : ""} onClick={() => setSection(item)}>{item === "discover" ? "Trail tips" : item === "library" ? `My library${purchases.length ? ` (${purchases.length})` : ""}` : item === "create" ? "Create & earn" : "Waymark+"}</button>)}
       </nav>
 
       {loading ? <div className="revenue-loading"><i /><i /><i /></div> : null}
       {!loading && section === "discover" && <>
         <div className="trail-picker"><label><span>Choose a trail</span><select value={selectedTrailId} onChange={(event) => { const value = event.target.value; setSelectedTrailId(value); setSelectedTips([]); if (!value) { setTips([]); setEligibility(null); } }}><option value="">Select a trail</option>{trails.map((trail) => <option key={trail.id} value={trail.id}>{trail.name} · {trail.location}</option>)}</select></label><div><strong>{tips.length} briefings</strong><small>Reviewed before they go live</small>{selectedTrailId && overview.entitlements.features.offline_maps ? <a href={`/api/trails/${selectedTrailId}/offline`}><Download size={13} /> Download offline pack</a> : null}</div></div>
-        {!trails.length ? <RevenueEmpty icon={MapPin} title="No trail shelves yet" copy="Turn one of your completed, map-verified journeys into Roavly’s first trail listing." action={ownPosts.length ? "Use my latest journey" : undefined} onAction={ownPosts.length ? () => createTrail(ownPosts[0].id) : undefined} /> : !tips.length ? <RevenueEmpty icon={Film} title="No live briefings for this trail" copy="Verified creators can submit the first 2–5 minute safety-reviewed briefing." action="Create the first briefing" onAction={() => setSection("create")} /> : <div className="tip-list">{tips.map((tip) => <TipCard key={tip.id} tip={tip} currency={overview.pricing.currency} selected={selectedTips.includes(tip.id)} toggle={() => setSelectedTips((current) => current.includes(tip.id) ? current.filter((id) => id !== tip.id) : [...current, tip.id])} />)}</div>}
+        {!trails.length ? <RevenueEmpty icon={MapPin} title="No trail shelves yet" copy="Turn one of your completed, map-verified journeys into Waymark’s first trail listing." action={ownPosts.length ? "Use my latest journey" : undefined} onAction={ownPosts.length ? () => createTrail(ownPosts[0].id) : undefined} /> : !tips.length ? <RevenueEmpty icon={Film} title="No live briefings for this trail" copy="Verified creators can submit the first 2–5 minute safety-reviewed briefing." action="Create the first briefing" onAction={() => setSection("create")} /> : <div className="tip-list">{tips.map((tip) => <TipCard key={tip.id} tip={tip} currency={overview.pricing.currency} selected={selectedTips.includes(tip.id)} toggle={() => setSelectedTips((current) => current.includes(tip.id) ? current.filter((id) => id !== tip.id) : [...current, tip.id])} />)}</div>}
         {selectedTips.length > 0 && <div className="tip-cart"><span><ShoppingBag size={18} /><strong>{selectedTips.length} selected</strong><small>{selectedTips.length === overview.pricing.bundleSize ? `${formatMoney(overview.pricing.bundlePriceCents, overview.pricing.currency)} bundle` : "Checkout together"}</small></span>{overview.credits?.remaining ? <button className="secondary" disabled={selectedTips.length !== 1} onClick={() => buyTips(true)}>Use 1 credit</button> : null}<button onClick={() => buyTips(false)}>Unlock selected</button></div>}
         <SponsoredChallenges challenges={challenges} join={(id) => jsonAction("/api/sponsored-challenges", { challengeId: id }, "Challenge joined. Your existing journeys now count automatically.")} />
         {placements.length > 0 && <section className="partner-strip"><header><span>NEARBY PARTNERS</span><small>Paid placements are always labelled</small></header>{placements.map((placement) => <a key={placement.id} href={placement.business.websiteUrl} target="_blank" rel="noreferrer sponsored"><i>{placement.disclosure}</i><strong>{placement.business.name}</strong><span>{placement.headline}</span><small>{placement.business.category}</small></a>)}</section>}
       </>}
 
-      {!loading && section === "library" && <div className="purchase-library">{purchases.length ? purchases.map((purchase) => <PurchaseCard key={purchase.id} purchase={purchase} showToast={showToast} refresh={loadAll} />) : <RevenueEmpty icon={Play} title="Your permanent briefing library is empty" copy="Anything you buy—or unlock with a Roavly+ credit—will stay here permanently." action="Browse trail tips" onAction={() => setSection("discover")} />}</div>}
+      {!loading && section === "library" && <div className="purchase-library">{purchases.length ? purchases.map((purchase) => <PurchaseCard key={purchase.id} purchase={purchase} showToast={showToast} refresh={loadAll} />) : <RevenueEmpty icon={Play} title="Your permanent briefing library is empty" copy="Anything you buy—or unlock with a Waymark+ credit—will stay here permanently." action="Browse trail tips" onAction={() => setSection("discover")} />}</div>}
 
       {!loading && section === "create" && <CreatorStudio trails={trails} ownPosts={ownPosts} selectedTrailId={selectedTrailId} setSelectedTrailId={setSelectedTrailId} eligibility={eligibility} overview={overview} createTrail={createTrail} showToast={showToast} refresh={loadAll} />}
 
@@ -205,7 +206,7 @@ function PurchaseCard({ purchase, showToast, refresh }: { purchase: Purchase; sh
     if (!response.ok) return showToast(payload.error || "Review could not be saved.");
     showToast("Thanks—your review helps the next explorer."); await refresh();
   }
-  return <article className="purchase-card"><header><span><ShieldCheck size={17} /> PERMANENT ACCESS</span><small>{purchase.tip.trail?.name || "Trail briefing"}</small></header><h3>{purchase.tip.title}</h3><p>{purchase.tip.description}</p>{purchase.tip.mediaType === "video" ? <video src={purchase.tip.mediaUrl} controls playsInline preload="metadata" /> : <img src={purchase.tip.mediaUrl} alt={purchase.tip.title} />}<form onSubmit={review}><div>{[1, 2, 3, 4, 5].map((star) => <button type="button" key={star} onClick={() => setRating(star)} aria-label={`${star} stars`}><Star size={19} fill={star <= rating ? "currentColor" : "none"} /></button>)}</div><input maxLength={500} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="What should future hikers know?" /><button type="submit">{purchase.review ? "Update review" : "Leave review"}</button></form><button className="report-tip" onClick={async () => { const reason = window.prompt("What seems wrong or unsafe in this briefing?"); if (!reason) return; const response = await fetch(`/api/tips/${purchase.tip.id}/report`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason }) }); showToast(response.ok ? "Reported to Roavly’s safety team." : "The report could not be sent."); }}><Flag size={14} /> Report unsafe information</button></article>;
+  return <article className="purchase-card"><header><span><ShieldCheck size={17} /> PERMANENT ACCESS</span><small>{purchase.tip.trail?.name || "Trail briefing"}</small></header><h3>{purchase.tip.title}</h3><p>{purchase.tip.description}</p>{purchase.tip.mediaType === "video" ? <video src={purchase.tip.mediaUrl} controls playsInline preload="metadata" /> : <img src={purchase.tip.mediaUrl} alt={purchase.tip.title} />}<form onSubmit={review}><div>{[1, 2, 3, 4, 5].map((star) => <button type="button" key={star} onClick={() => setRating(star)} aria-label={`${star} stars`}><Star size={19} fill={star <= rating ? "currentColor" : "none"} /></button>)}</div><input maxLength={500} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="What should future hikers know?" /><button type="submit">{purchase.review ? "Update review" : "Leave review"}</button></form><button className="report-tip" onClick={async () => { const reason = window.prompt("What seems wrong or unsafe in this briefing?"); if (!reason) return; const response = await fetch(`/api/tips/${purchase.tip.id}/report`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason }) }); showToast(response.ok ? "Reported to Waymark’s safety team." : "The report could not be sent."); }}><Flag size={14} /> Report unsafe information</button></article>;
 }
 
 function CreatorStudio({ trails, ownPosts, selectedTrailId, setSelectedTrailId, eligibility, overview, createTrail, showToast, refresh }: { trails: Trail[]; ownPosts: JourneyMapPost[]; selectedTrailId: string; setSelectedTrailId: (id: string) => void; eligibility: { isVerifiedSeller: boolean; canSubmitForTrail: boolean; criteria: Record<string, number | boolean> } | null; overview: Overview; createTrail: (id: string) => void; showToast: (message: string) => void; refresh: () => Promise<void> }) {
@@ -213,12 +214,106 @@ function CreatorStudio({ trails, ownPosts, selectedTrailId, setSelectedTrailId, 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!selectedTrailId || submitting) return;
     setSubmitting(true);
-    const form = new FormData(event.currentTarget);
-    const response = await fetch(`/api/trails/${selectedTrailId}/tips`, { method: "POST", body: form });
-    const payload = await response.json() as { error?: string; message?: string };
-    setSubmitting(false);
-    if (!response.ok) return showToast(payload.error || "Briefing could not be submitted.");
-    showToast(payload.message || "Briefing submitted for review."); event.currentTarget.reset(); await refresh();
+    const formElement = event.currentTarget;
+    try {
+      const form = new FormData(formElement);
+      const title = String(form.get("title") || "").trim();
+      const description = String(form.get("description") || "").trim();
+      const durationSeconds = Math.round(Number(form.get("durationSeconds")) || 0);
+      const priceCents = Math.round(Number(form.get("priceCents")) || 0);
+      const mediaInput = form.get("media");
+      const previewInput = form.get("preview");
+      if (!(mediaInput instanceof File) || !mediaInput.size) {
+        showToast("Choose a briefing video or photo narration.");
+        return;
+      }
+
+      async function prepareTipFile(file: File, role: "media" | "preview"): Promise<File> {
+        const type = (file.type || "").toLowerCase();
+        const isVideo = type.startsWith("video/");
+        const looksImage = type.startsWith("image/") || /\.(heic|heif|jpe?g|png|webp)$/i.test(file.name);
+        if (isVideo) return file;
+        if (!looksImage && role === "media") return file;
+        if (!looksImage) return file;
+        const prepared = await preparePhotoForUpload(file);
+        return prepared.file;
+      }
+
+      const mediaFile = await prepareTipFile(mediaInput, "media");
+      const mediaIsVideo = (mediaFile.type || "").startsWith("video/");
+      let previewFile: File;
+      if (previewInput instanceof File && previewInput.size) {
+        previewFile = await prepareTipFile(previewInput, "preview");
+      } else if (mediaIsVideo) {
+        showToast("Add a 15-second preview clip or still image.");
+        return;
+      } else {
+        previewFile = mediaFile;
+      }
+
+      const tipId = crypto.randomUUID();
+
+      async function signAndPut(purpose: "tip_media" | "tip_preview", file: File) {
+        const signResponse = await fetch("/api/uploads/sign", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            purpose,
+            contentType: file.type || "application/octet-stream",
+            byteSize: file.size,
+            tipId,
+          }),
+        });
+        const signed = await signResponse.json() as {
+          error?: string;
+          key?: string;
+          uploadUrl?: string;
+          contentType?: string;
+        };
+        if (!signResponse.ok || !signed.uploadUrl || !signed.key || !signed.contentType) {
+          throw new Error(signed.error || "Could not start the upload.");
+        }
+        const putResponse = await fetch(signed.uploadUrl, {
+          method: "PUT",
+          headers: { "content-type": signed.contentType },
+          body: file,
+        });
+        const putPayload = await putResponse.json().catch(() => ({})) as { error?: string; key?: string };
+        if (!putResponse.ok) throw new Error(putPayload.error || "Media upload failed.");
+        return { key: signed.key, contentType: signed.contentType };
+      }
+
+      const mediaUpload = await signAndPut("tip_media", mediaFile);
+      const previewUpload = await signAndPut("tip_preview", previewFile);
+
+      const response = await fetch(`/api/trails/${selectedTrailId}/tips`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tipId,
+          title,
+          description,
+          durationSeconds,
+          priceCents,
+          mediaKey: mediaUpload.key,
+          previewKey: previewUpload.key,
+          mediaContentType: mediaUpload.contentType,
+          previewContentType: previewUpload.contentType,
+        }),
+      });
+      const payload = await response.json() as { error?: string; message?: string };
+      if (!response.ok) {
+        showToast(payload.error || "Briefing could not be submitted.");
+        return;
+      }
+      showToast(payload.message || "Briefing submitted for review.");
+      formElement.reset();
+      await refresh();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Briefing could not be submitted.");
+    } finally {
+      setSubmitting(false);
+    }
   }
   return <div className="creator-studio"><section className="seller-gate"><span><ShieldCheck size={22} /></span><div><small>VERIFIED SELLER</small><h3>{eligibility?.isVerifiedSeller ? "Your creator access is active" : "Trust comes before selling"}</h3><p>Creators must post a map-verified completion and reach the configured friend or community-motivation threshold. Every briefing is reviewed.</p></div><i>{eligibility?.isVerifiedSeller ? "Verified" : "Not yet eligible"}</i></section>
     <div className="creator-grid"><section><h3>1. Choose a completed trail</h3><select value={selectedTrailId} onChange={(event) => setSelectedTrailId(event.target.value)}><option value="">Select trail</option>{trails.map((trail) => <option value={trail.id} key={trail.id}>{trail.name}</option>)}</select>{ownPosts.length ? <details><summary><Plus size={15} /> Add a trail from one of my journeys</summary>{ownPosts.slice(0, 10).map((post) => <button key={post.id} onClick={() => createTrail(post.id)}><MapPin size={14} /><span>{post.location}<small>{post.caption}</small></span></button>)}</details> : <p>Share a map-verified journey first.</p>}</section><section><h3>Creator earnings</h3><strong className="creator-balance">{formatMoney(overview.creator?.balance?.pendingCents || 0, overview.pricing.currency)}</strong><small>Available balance · 70% default creator share</small><button onClick={async () => { const response = await fetch("/api/creator-payouts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "onboard" }) }); const payload = await response.json() as { onboardingUrl?: string; error?: string }; if (payload.onboardingUrl) window.location.href = payload.onboardingUrl; else showToast(payload.error || "Payout setup could not start."); }}>Set up Stripe payouts</button></section></div>
@@ -232,12 +327,12 @@ function GearTagger({ posts, showToast }: { posts: JourneyMapPost[]; showToast: 
   const [catalog, setCatalog] = useState<Array<{ id: string; brand: string; productName: string }>>([]);
   const [postId, setPostId] = useState(posts[0]?.id || ""); const [catalogId, setCatalogId] = useState("");
   useEffect(() => { fetch("/api/gear-tags").then((response) => response.json()).then((payload) => setCatalog(payload.catalog || [])).catch(() => undefined); }, []);
-  return <section className="gear-tagger"><header><Package size={20} /><div><small>AFFILIATE GEAR</small><h3>Tag gear you genuinely used</h3></div></header><p>Roavly tracks outbound clicks through a disclosed affiliate redirect. The launch catalog is intentionally curated.</p><div><select value={postId} onChange={(event) => setPostId(event.target.value)}><option value="">Choose your post</option>{posts.map((post) => <option key={post.id} value={post.id}>{post.caption}</option>)}</select><select value={catalogId} onChange={(event) => setCatalogId(event.target.value)}><option value="">Choose product</option>{catalog.map((product) => <option key={product.id} value={product.id}>{product.brand} · {product.productName}</option>)}</select><button onClick={async () => { const response = await fetch("/api/gear-tags", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ targetType: "post", targetId: postId, catalogId }) }); const payload = await response.json() as { error?: string }; showToast(response.ok ? "Gear tag added to your post." : payload.error || "Gear tag could not be added."); }}>Add gear tag</button></div></section>;
+  return <section className="gear-tagger"><header><Package size={20} /><div><small>AFFILIATE GEAR</small><h3>Tag gear you genuinely used</h3></div></header><p>Waymark tracks outbound clicks through a disclosed affiliate redirect. The launch catalog is intentionally curated.</p><div><select value={postId} onChange={(event) => setPostId(event.target.value)}><option value="">Choose your post</option>{posts.map((post) => <option key={post.id} value={post.id}>{post.caption}</option>)}</select><select value={catalogId} onChange={(event) => setCatalogId(event.target.value)}><option value="">Choose product</option>{catalog.map((product) => <option key={product.id} value={product.id}>{product.brand} · {product.productName}</option>)}</select><button onClick={async () => { const response = await fetch("/api/gear-tags", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ targetType: "post", targetId: postId, catalogId }) }); const payload = await response.json() as { error?: string }; showToast(response.ok ? "Gear tag added to your post." : payload.error || "Gear tag could not be added."); }}>Add gear tag</button></div></section>;
 }
 
 function PlusPanel({ overview, action }: { overview: Overview; action: (body: object) => Promise<boolean> }) {
   const benefits = [[Download, "Offline trail packs", "Keep trail facts and community notes available when signal disappears."], [ShoppingBag, `${overview.pricing.plusCreditsPerPeriod} trail-tip credits monthly`, "Creators still receive a fixed payout when you redeem a credit."], [BadgeDollarSign, "No browsing ads", "Paid briefings, checkout and onboarding are always ad-free for everyone."], [Sparkles, "Advanced planning + badge", "Unlimited saves, richer route tools and an Explorer+ profile mark."]] as const;
-  return <section className="plus-panel"><div className="plus-card"><span><Gem size={25} /></span><small>ROAVLY+</small><h2>{overview.entitlements.tier === "plus" ? "More trail time, already unlocked." : "Plan deeper. Carry less uncertainty."}</h2><p>The social feed, posting, friends and journeys stay free. Roavly+ funds creator credits and premium planning tools.</p>{overview.entitlements.tier === "plus" ? <strong>Active · {overview.credits?.remaining || 0} credits remaining</strong> : <div><button disabled={!overview.billingReady} onClick={() => action({ plan: "monthly" })}>Choose monthly</button><button disabled={!overview.billingReady} className="secondary" onClick={() => action({ plan: "annual" })}>Choose annual</button></div>}{!overview.billingReady && <em>Stripe product prices must be connected before checkout can open.</em>}</div><div className="plus-benefits">{benefits.map(([Icon, title, copy]) => <article key={title}><Icon size={20} /><div><strong>{title}</strong><p>{copy}</p></div></article>)}</div></section>;
+  return <section className="plus-panel"><div className="plus-card"><span><Gem size={25} /></span><small>WAYMARK+</small><h2>{overview.entitlements.tier === "plus" ? "More trail time, already unlocked." : "Plan deeper. Carry less uncertainty."}</h2><p>The social feed, posting, friends and journeys stay free. Waymark+ funds creator credits and premium planning tools.</p>{overview.entitlements.tier === "plus" ? <strong>Active · {overview.credits?.remaining || 0} credits remaining</strong> : <div><button disabled={!overview.billingReady} onClick={() => action({ plan: "monthly" })}>Choose monthly</button><button disabled={!overview.billingReady} className="secondary" onClick={() => action({ plan: "annual" })}>Choose annual</button></div>}{!overview.billingReady && <em>Stripe product prices must be connected before checkout can open.</em>}</div><div className="plus-benefits">{benefits.map(([Icon, title, copy]) => <article key={title}><Icon size={20} /><div><strong>{title}</strong><p>{copy}</p></div></article>)}</div></section>;
 }
 
 function SponsoredChallenges({ challenges, join }: { challenges: SponsoredChallenge[]; join: (id: string) => Promise<boolean> }) {
@@ -249,7 +344,7 @@ function AdminRevenuePanel({ data, showToast, refresh }: { data: AdminData; show
   const [form, setForm] = useState<Record<string, string>>({});
   async function submit(action: string, extra: Record<string, unknown> = {}) { const response = await fetch("/api/admin/monetization", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, ...form, ...extra }) }); const payload = await response.json() as { error?: string }; showToast(response.ok ? "Revenue admin change saved." : payload.error || "Admin change failed."); if (response.ok) { setForm({}); await refresh(); } }
   const field = (name: string, placeholder: string, type = "text") => <input type={type} value={form[name] || ""} onChange={(event) => setForm({ ...form, [name]: event.target.value })} placeholder={placeholder} />;
-  return <details className="revenue-admin"><summary><ShieldCheck size={18} /> Revenue & safety admin <small>{data.pendingTips.length} briefings pending</small></summary><section><h3>Seller verification</h3><div className="admin-form">{field("userEmail", "Creator account email", "email")}<button onClick={() => submit("verify_creator")}>Verify seller manually</button></div></section><section><h3>Briefing moderation</h3>{data.pendingTips.length ? data.pendingTips.map((tip) => <div key={tip.id}><span><strong>{tip.title}</strong><small>{tip.description}</small><em>Flags: {tip.riskFlags}</em></span><button onClick={() => fetch(`/api/admin/tips/${tip.id}/moderate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "approve", notes: "Reviewed against Roavly safety guidance." }) }).then(() => refresh())}>Approve</button><button className="secondary" onClick={() => { const notes = window.prompt("Rejection reason"); if (notes) fetch(`/api/admin/tips/${tip.id}/moderate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reject", notes }) }).then(() => refresh()); }}>Reject</button></div>) : <p>No briefings waiting.</p>}</section><section><h3>Local partner</h3><div className="admin-form">{field("name", "Business name")}{field("category", "Category")}{field("websiteUrl", "https://business.example")}{field("logoUrl", "Logo URL (optional)")}<button onClick={() => submit("create_partner", { billingStatus: "active" })}>Create active partner</button></div></section><section><h3>Partner placement</h3><div className="admin-form"><select value={form.businessId || ""} onChange={(event) => setForm({ ...form, businessId: event.target.value })}><option value="">Partner</option>{data.partners.map((partner) => <option value={partner.id} key={partner.id}>{partner.name}</option>)}</select>{field("headline", "Placement headline")}{field("startDate", "Start", "datetime-local")}{field("endDate", "End", "datetime-local")}<button onClick={() => submit("create_placement")}>Schedule placement</button></div></section><section><h3>Sponsored challenge</h3><div className="admin-form">{field("title", "Challenge title")}{field("description", "Description")}{field("sponsorName", "Sponsor")}{field("target", "Target", "number")}{field("startDate", "Start", "datetime-local")}{field("endDate", "End", "datetime-local")}<button onClick={() => submit("create_challenge", { metric: "minutes", rules: "Progress uses qualifying Roavly journey posts.", status: "live" })}>Publish challenge</button></div></section><section><h3>Native ad campaign</h3><div className="admin-form">{field("advertiserName", "Advertiser")}{field("headline", "Headline")}{field("destinationUrl", "Destination URL")}{field("startDate", "Start", "datetime-local")}{field("endDate", "End", "datetime-local")}<button onClick={() => submit("create_ad", { status: "live" })}>Publish disclosed ad</button></div></section></details>;
+  return <details className="revenue-admin"><summary><ShieldCheck size={18} /> Revenue & safety admin <small>{data.pendingTips.length} briefings pending</small></summary><section><h3>Seller verification</h3><div className="admin-form">{field("userEmail", "Creator account email", "email")}<button onClick={() => submit("verify_creator")}>Verify seller manually</button></div></section><section><h3>Briefing moderation</h3>{data.pendingTips.length ? data.pendingTips.map((tip) => <div key={tip.id}><span><strong>{tip.title}</strong><small>{tip.description}</small><em>Flags: {tip.riskFlags}</em></span><button onClick={() => fetch(`/api/admin/tips/${tip.id}/moderate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "approve", notes: "Reviewed against Waymark safety guidance." }) }).then(() => refresh())}>Approve</button><button className="secondary" onClick={() => { const notes = window.prompt("Rejection reason"); if (notes) fetch(`/api/admin/tips/${tip.id}/moderate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reject", notes }) }).then(() => refresh()); }}>Reject</button></div>) : <p>No briefings waiting.</p>}</section><section><h3>Local partner</h3><div className="admin-form">{field("name", "Business name")}{field("category", "Category")}{field("websiteUrl", "https://business.example")}{field("logoUrl", "Logo URL (optional)")}<button onClick={() => submit("create_partner", { billingStatus: "active" })}>Create active partner</button></div></section><section><h3>Partner placement</h3><div className="admin-form"><select value={form.businessId || ""} onChange={(event) => setForm({ ...form, businessId: event.target.value })}><option value="">Partner</option>{data.partners.map((partner) => <option value={partner.id} key={partner.id}>{partner.name}</option>)}</select>{field("headline", "Placement headline")}{field("startDate", "Start", "datetime-local")}{field("endDate", "End", "datetime-local")}<button onClick={() => submit("create_placement")}>Schedule placement</button></div></section><section><h3>Sponsored challenge</h3><div className="admin-form">{field("title", "Challenge title")}{field("description", "Description")}{field("sponsorName", "Sponsor")}{field("target", "Target", "number")}{field("startDate", "Start", "datetime-local")}{field("endDate", "End", "datetime-local")}<button onClick={() => submit("create_challenge", { metric: "minutes", rules: "Progress uses qualifying Waymark journey posts.", status: "live" })}>Publish challenge</button></div></section><section><h3>Native ad campaign</h3><div className="admin-form">{field("advertiserName", "Advertiser")}{field("headline", "Headline")}{field("destinationUrl", "Destination URL")}{field("startDate", "Start", "datetime-local")}{field("endDate", "End", "datetime-local")}<button onClick={() => submit("create_ad", { status: "live" })}>Publish disclosed ad</button></div></section></details>;
 }
 
 function RevenueEmpty({ icon: Icon, title, copy, action, onAction }: { icon: typeof MapPin; title: string; copy: string; action?: string; onAction?: () => void }) { return <div className="revenue-empty"><span><Icon size={28} /></span><h3>{title}</h3><p>{copy}</p>{action && onAction ? <button onClick={onAction}>{action}</button> : null}</div>; }

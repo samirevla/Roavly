@@ -11,7 +11,7 @@ export async function GET(
   if (!user) return new Response("Sign in required", { status: 401 });
   const { key } = await context.params;
   const objectKey = key.join("/");
-  if (!objectKey.startsWith("posts/")) {
+  if (!objectKey.startsWith("posts/") && !objectKey.startsWith("avatars/")) {
     return new Response("Not found", { status: 404 });
   }
 

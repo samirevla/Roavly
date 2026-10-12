@@ -69,7 +69,7 @@ export default function App() {
         roavlyApi.posts(sessionToken),
         roavlyApi.people(sessionToken),
       ]);
-      if (!me.user || !me.profile) throw new Error("Your Roavly profile could not load.");
+      if (!me.user || !me.profile) throw new Error("Your Waymark profile could not load.");
       setViewer(me.user);
       setProfile(me.profile);
       setPosts(postResult.posts);
@@ -82,7 +82,7 @@ export default function App() {
         setViewer(null);
         setProfile(null);
       } else if (!quiet) {
-        notify(error instanceof Error ? error.message : "Roavly could not load.");
+        notify(error instanceof Error ? error.message : "Waymark could not load.");
       }
     } finally {
       if (!quiet) setLoading(false);
@@ -126,7 +126,7 @@ export default function App() {
 
   function logout() {
     if (!token) return;
-    Alert.alert("Sign out of Roavly?", "You can sign back in at any time.", [
+    Alert.alert("Sign out of Waymark?", "You can sign back in at any time.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign out",
@@ -231,7 +231,7 @@ export default function App() {
             <Ionicons name="trail-sign" size={30} color={colors.white} />
           </View>
           <ActivityIndicator color={colors.forest} />
-          <Text style={styles.loadingText}>Loading Roavly…</Text>
+          <Text style={styles.loadingText}>Loading Waymark…</Text>
         </View>
       </SafeAreaProvider>
     );

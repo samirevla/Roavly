@@ -51,12 +51,12 @@ export function AuthScreen({
           ) : (
             <>
               <Ionicons name="log-in-outline" size={20} color={colors.white} />
-              <Text style={styles.signInText}>Sign in to Roavly</Text>
+              <Text style={styles.signInText}>Sign in to Waymark</Text>
             </>
           )}
         </Pressable>
         <Text style={styles.note}>
-          Your existing Roavly profile, posts and friends will appear automatically.
+          Your existing Waymark profile, posts and friends will appear automatically.
         </Text>
       </View>
     </SafeAreaView>

@@ -1,7 +1,8 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, notInArray, or } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { blockedCounterpartEmails, blockUserByUsername } from "../../blocks";
 import { getDb } from "../../../db";
-import { blocks, friendships, profiles } from "../../../db/schema";
+import { friendships, profiles } from "../../../db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +15,9 @@ export async function GET() {
   if (!user) return Response.json({ error: "Sign in to find friends." }, { status: 401 });
 
   const db = await getDb();
-  const [allProfiles, relationships, allBlocks] = await Promise.all([
-    db.select().from(profiles),
+  // Viewer-scoped friendships/blocks first, then load only profiles needed for
+  // friendships / pending / discovery (exclude self + blocked counterparts).
+  const [relationships, blockedEmails] = await Promise.all([
     db
       .select()
       .from(friendships)
@@ -25,26 +27,17 @@ export async function GET() {
           eq(friendships.userTwoEmail, user.email),
         ),
       ),
-    db
-      .select()
-      .from(blocks)
-      .where(
-        or(
-          eq(blocks.blockerEmail, user.email),
-          eq(blocks.blockedEmail, user.email),
-        ),
-      ),
+    blockedCounterpartEmails(db, user.email),
   ]);
 
-  const people = allProfiles
-    .filter(
-      (profile) =>
-        profile.email !== user.email &&
-        !allBlocks.some(
-          (block) =>
-            block.blockerEmail === profile.email || block.blockedEmail === profile.email,
-        ),
-    )
+  const excludeEmails = [user.email, ...blockedEmails];
+
+  const visibleProfiles = await db
+    .select()
+    .from(profiles)
+    .where(notInArray(profiles.email, excludeEmails));
+
+  const people = visibleProfiles
     .map((profile) => {
       const relationship = relationships.find(
         (item) =>
@@ -66,6 +59,8 @@ export async function GET() {
         travelRadiusKm: profile.travelRadiusKm,
         groupStyle: profile.groupStyle,
         accessibilityNeeds: profile.accessibilityNeeds,
+        avatarKey: profile.avatarKey || "",
+        avatarUrl: profile.avatarKey ? `/api/media/${profile.avatarKey}` : null,
         relationship: state,
       };
     })
@@ -94,7 +89,7 @@ export async function POST(request: Request) {
     .where(eq(profiles.username, targetUsername))
     .limit(1);
   if (!target || target.email === user.email) {
-    return Response.json({ error: "That Roavly member was not found." }, { status: 404 });
+    return Response.json({ error: "That Waymark member was not found." }, { status: 404 });
   }
 
   const [userOneEmail, userTwoEmail] = orderedPair(user.email, target.email);
@@ -111,16 +106,10 @@ export async function POST(request: Request) {
   const now = new Date();
 
   if (payload.action === "block") {
-    if (existing) await db.delete(friendships).where(eq(friendships.id, existing.id));
-    await db
-      .insert(blocks)
-      .values({
-        id: crypto.randomUUID(),
-        blockerEmail: user.email,
-        blockedEmail: target.email,
-        createdAt: now,
-      })
-      .onConflictDoNothing();
+    const result = await blockUserByUsername(db, user.email, targetUsername);
+    if ("error" in result) {
+      return Response.json({ error: result.error }, { status: result.status });
+    }
     return Response.json({ relationship: "none", blocked: true });
   }
 

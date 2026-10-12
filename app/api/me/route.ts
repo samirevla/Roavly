@@ -1,15 +1,31 @@
 import { and, eq, ne } from "drizzle-orm";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import {
+  assertMediaObjectExists,
+  getMediaBucket,
+  mediaUnavailableResponse,
+} from "../../media-storage";
 import { getDb } from "../../../db";
 import { profiles } from "../../../db/schema";
 
 export const dynamic = "force-dynamic";
+
+const AVATAR_KEY_RE = /^avatars\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$/i;
 
 function cleanUsername(value: string) {
   return value
     .toLowerCase()
     .replace(/[^a-z0-9._]/g, "")
     .slice(0, 24);
+}
+
+function withAvatarUrl<T extends { avatarKey?: string | null }>(profile: T) {
+  const avatarKey = profile.avatarKey || "";
+  return {
+    ...profile,
+    avatarKey,
+    avatarUrl: avatarKey ? `/api/media/${avatarKey}` : null,
+  };
 }
 
 export async function GET() {
@@ -23,7 +39,7 @@ export async function GET() {
     .where(eq(profiles.email, user.email))
     .limit(1);
 
-  if (existing) return Response.json({ user, profile: existing });
+  if (existing) return Response.json({ user, profile: withAvatarUrl(existing) });
 
   const now = new Date();
   const usernameBase =
@@ -52,12 +68,13 @@ export async function GET() {
       travelRadiusKm: 50,
       groupStyle: "Social",
       accessibilityNeeds: "",
+      avatarKey: "",
       createdAt: now,
       updatedAt: now,
     })
     .returning();
 
-  return Response.json({ user, profile });
+  return Response.json({ user, profile: withAvatarUrl(profile) });
 }
 
 export async function PUT(request: Request) {
@@ -79,6 +96,7 @@ export async function PUT(request: Request) {
     travelRadiusKm?: number;
     groupStyle?: string;
     accessibilityNeeds?: string;
+    avatarKey?: string;
   };
   const displayName = payload.displayName?.trim().slice(0, 60) || user.displayName;
   const username = cleanUsername(payload.username || "") || "roavly.member";
@@ -94,6 +112,38 @@ export async function PUT(request: Request) {
   const groupStyle = payload.groupStyle?.trim().slice(0, 50) || "Social";
   const accessibilityNeeds = payload.accessibilityNeeds?.trim().slice(0, 240) || "";
 
+  let avatarKey: string | undefined;
+  if (Object.prototype.hasOwnProperty.call(payload, "avatarKey")) {
+    const raw = String(payload.avatarKey ?? "").trim();
+    if (raw === "") {
+      avatarKey = "";
+    } else if (!AVATAR_KEY_RE.test(raw)) {
+      return Response.json(
+        { error: "avatarKey must match avatars/{uuid}.jpg|png|webp after upload." },
+        { status: 400 },
+      );
+    } else {
+      let bucket;
+      try {
+        bucket = await getMediaBucket();
+      } catch (error) {
+        const unavailable = mediaUnavailableResponse(error);
+        if (unavailable) return unavailable;
+        throw error;
+      }
+      let mediaMeta;
+      try {
+        mediaMeta = await assertMediaObjectExists(bucket, raw);
+      } catch {
+        return Response.json({ error: "Avatar photo was not found. Upload it first." }, { status: 400 });
+      }
+      if (mediaMeta.customMetadata?.owner && mediaMeta.customMetadata.owner !== user.email) {
+        return Response.json({ error: "Avatar object owner mismatch." }, { status: 403 });
+      }
+      avatarKey = raw;
+    }
+  }
+
   const db = await getDb();
   const [usernameOwner] = await db
     .select({ email: profiles.email })
@@ -104,44 +154,49 @@ export async function PUT(request: Request) {
     return Response.json({ error: "That username is already taken." }, { status: 409 });
   }
   const now = new Date();
+  const insertValues = {
+    email: user.email,
+    displayName,
+    username,
+    bio,
+    homeBase,
+    favoriteActivities,
+    ageBand,
+    experienceLevel,
+    pacePreference,
+    availability,
+    travelRadiusKm,
+    groupStyle,
+    accessibilityNeeds,
+    avatarKey: avatarKey ?? "",
+    createdAt: now,
+    updatedAt: now,
+  };
+  const updateSet: Record<string, unknown> = {
+    displayName,
+    username,
+    bio,
+    homeBase,
+    favoriteActivities,
+    ageBand,
+    experienceLevel,
+    pacePreference,
+    availability,
+    travelRadiusKm,
+    groupStyle,
+    accessibilityNeeds,
+    updatedAt: now,
+  };
+  if (avatarKey !== undefined) updateSet.avatarKey = avatarKey;
+
   const [profile] = await db
     .insert(profiles)
-    .values({
-      email: user.email,
-      displayName,
-      username,
-      bio,
-      homeBase,
-      favoriteActivities,
-      ageBand,
-      experienceLevel,
-      pacePreference,
-      availability,
-      travelRadiusKm,
-      groupStyle,
-      accessibilityNeeds,
-      createdAt: now,
-      updatedAt: now,
-    })
+    .values(insertValues)
     .onConflictDoUpdate({
       target: profiles.email,
-      set: {
-        displayName,
-        username,
-        bio,
-        homeBase,
-        favoriteActivities,
-        ageBand,
-        experienceLevel,
-        pacePreference,
-        availability,
-        travelRadiusKm,
-        groupStyle,
-        accessibilityNeeds,
-        updatedAt: now,
-      },
+      set: updateSet,
     })
     .returning();
 
-  return Response.json({ profile });
+  return Response.json({ profile: withAvatarUrl(profile) });
 }

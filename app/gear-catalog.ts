@@ -4,4 +4,6 @@ export const CURATED_GEAR_CATALOG = [
   { id: "water-filter", brand: "LifeStraw", productName: "Peak water filter", affiliateUrl: "https://www.amazon.com/s?k=LifeStraw+Peak+water+filter" },
   { id: "headlamp", brand: "Black Diamond", productName: "Spot headlamp", affiliateUrl: "https://www.amazon.com/s?k=Black+Diamond+Spot+headlamp" },
   { id: "rain-shell", brand: "Patagonia", productName: "Torrentshell rain jacket", affiliateUrl: "https://www.amazon.com/s?k=Patagonia+Torrentshell+rain+jacket" },
+  { id: "insulated-bottle", brand: "Hydro Flask", productName: "Standard Mouth insulated bottle", affiliateUrl: "https://www.amazon.com/s?k=Hydro+Flask+insulated+bottle" },
+  { id: "trekking-poles", brand: "Black Diamond", productName: "Trail trekking poles", affiliateUrl: "https://www.amazon.com/s?k=Black+Diamond+trekking+poles" },
 ] as const;

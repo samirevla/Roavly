@@ -38,7 +38,7 @@ export async function GET() {
           mediaType: tip.mediaType,
           mediaUrl: `/api/tips/${tip.id}/media`,
           trail: trailRows.find((trail) => trail.id === tip.trailId) || null,
-          creator: { displayName: creator?.displayName || "Roavly creator", username: creator?.username || "roavly.creator" },
+          creator: { displayName: creator?.displayName || "Waymark creator", username: creator?.username || "waymark.creator" },
         },
         review: review ? { rating: review.rating, comment: review.comment } : null,
       }];
